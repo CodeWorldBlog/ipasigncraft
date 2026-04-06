@@ -79,6 +79,51 @@ class HomeViewModel: ObservableObject {
     func removePlistEntry(_ id: UUID) {
         state.plistEntries.removeAll { $0.id == id }
     }
+    
+    func addEntitlementPreset(_ type: EntitlementPreset) {
+
+        let newEntry: EntitlementEntry
+        
+        switch type {
+        case .pushNotifications:
+            newEntry = EntitlementEntry(
+                key: "aps-environment",
+                value: .string("development")
+            )
+            
+        case .appGroups:
+            newEntry = EntitlementEntry(
+                key: "com.apple.security.application-groups",
+                value: .array(["group.your.app"])
+            )
+            
+        case .keychainSharing:
+            newEntry = EntitlementEntry(
+                key: "keychain-access-groups",
+                value: .array(["$(AppIdentifierPrefix)group"])
+            )
+        }
+        
+        // Prevent duplicate keys
+        guard !state.entitlementEntries.contains(where: { $0.key == newEntry.key }) else {
+            return
+        }
+        
+        state.entitlementEntries.append(newEntry)
+    }
+    
+    func addEntitlementEntry(
+        key: String = "",
+        value: EntitlementValue = .string("")
+    ) {
+        state.entitlementEntries.append(
+            EntitlementEntry(key: key, value: value)
+        )
+    }
+    
+    func removeEntitlementEntry(_ id: UUID) {
+        state.entitlementEntries.removeAll { $0.id == id }
+    }
 
     // MARK: - Resign
     func resign() {

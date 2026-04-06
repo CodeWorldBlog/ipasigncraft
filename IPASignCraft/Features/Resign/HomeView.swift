@@ -10,15 +10,19 @@ import SwiftUI
 
 struct HomeView: View {
     @StateObject private var viewModel = HomeViewModel()
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 25) {
             headerSection
             Divider()
             inputSection
+            
             if viewModel.state.useCustomBundleID {
                 bundleIDSection
             }
-            plistSection
+            
+            advancedOptionsSection
+            
             Divider()
             certificateSection
             actionSection
@@ -30,8 +34,8 @@ struct HomeView: View {
     }
 }
 
+// MARK: - Header
 fileprivate extension HomeView {
-    // MARK: - Header
     var headerSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("IPASignCraft").font(.largeTitle).fontWeight(.semibold)
@@ -70,36 +74,6 @@ fileprivate extension HomeView {
         }
     }
     
-    // MARK: - plist Section Changes Option
-    var plistSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Info.plist Modifications")
-                    .font(.headline)
-                Spacer()
-                Button("+ Add") {
-                    viewModel.addPlistEntry()
-                }
-            }
-            
-            ForEach($viewModel.state.plistEntries) { $entry in
-                HStack {
-                    TextField("Key", text: $entry.key)
-                        .textFieldStyle(.roundedBorder)
-                    
-                    TextField("Value", text: $entry.value)
-                        .textFieldStyle(.roundedBorder)
-                    
-                    Button {
-                        viewModel.removePlistEntry(entry.id)
-                    } label: {
-                        Image(systemName: "trash")
-                    }
-                }
-            }
-        }
-    }
-    
     // MARK: - App Bundle ID
     var bundleIDSection: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -133,7 +107,185 @@ fileprivate extension HomeView {
             
         }
     }
+}
+
+// MARK: - Advance Section
+fileprivate extension HomeView {
+    // MARK: - Advanced Options Section
+    var advancedOptionsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            
+            Text("Advanced Options")
+                .font(.headline)
+            
+            // MARK: - Info.plist Toggle + Section
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle("Modify Info.plist", isOn: $viewModel.state.enablePlistEditing)
+                
+                if viewModel.state.enablePlistEditing {
+                    plistSection
+                        .padding(.leading, 8)
+                }
+            }
+            
+            // MARK: - Entitlement Toggle + Section
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle("Modify Entitlements", isOn: $viewModel.state.enableEntitlementEditing)
+                
+                if viewModel.state.enableEntitlementEditing {
+                    entitlementSection
+                        .padding(.leading, 8)
+                }
+            }
+        }
+    }
     
+    // MARK: Info Plist
+    var plistSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Info.plist Modifications")
+                    .font(.headline)
+                Spacer()
+                Button("+ Add") {
+                    viewModel.addPlistEntry()
+                }
+            }
+            
+            ForEach($viewModel.state.plistEntries) { $entry in
+                HStack {
+                    TextField("e.g. NSCameraUsageDescription", text: $entry.key)
+                        .textFieldStyle(.roundedBorder)
+                    
+                    TextField("e.g. This app needs camera access", text: $entry.value)
+                        .textFieldStyle(.roundedBorder)
+                    
+                    Button {
+                        viewModel.removePlistEntry(entry.id)
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                }
+            }
+        }
+    }
+    
+    // MARK: Entitlement Section
+    var entitlementSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            
+            // Header
+            HStack {
+                Text("Entitlement Modifications")
+                    .font(.headline)
+                
+                Spacer()
+                
+                Menu("Add Capability") {
+                    Button("Push Notifications") {
+                        viewModel.addEntitlementPreset(.pushNotifications)
+                    }
+                    
+                    Button("App Groups") {
+                        viewModel.addEntitlementPreset(.appGroups)
+                    }
+                    
+                    Button("Keychain Sharing") {
+                        viewModel.addEntitlementPreset(.keychainSharing)
+                    }
+                }
+                
+                Button("+ Add") {
+                    viewModel.addEntitlementEntry()
+                }
+            }
+            
+            // Hint
+            Text("Example: aps-environment → development")
+                .font(.caption)
+                .foregroundColor(.gray)
+            
+            // Entries
+            ForEach($viewModel.state.entitlementEntries) { $entry in
+                VStack(alignment: .leading, spacing: 8) {
+                    
+                    HStack {
+                        // Key
+                        TextField("e.g. aps-environment", text: $entry.key)
+                            .textFieldStyle(.roundedBorder)
+                        
+                        // Type Picker
+                        EntitlementTypePicker(entry: $entry)
+                        
+                        // Delete
+                        Button {
+                            viewModel.removeEntitlementEntry(entry.id)
+                        } label: {
+                            Image(systemName: "trash")
+                        }
+                    }
+                    
+                    // Value Input (dynamic)
+                    entitlementValueInput(for: $entry)
+                }
+            }
+        }
+    }
+    
+    
+    @ViewBuilder
+    func entitlementValueInput(for entry: Binding<EntitlementEntry>) -> some View {
+        switch entry.wrappedValue.value {
+            
+        case .string(let value):
+            TextField("Value", text: Binding(
+                get: { value },
+                set: { entry.wrappedValue.value = .string($0) }
+            ))
+            .textFieldStyle(.roundedBorder)
+            
+        case .bool(let value):
+            Toggle("Enabled", isOn: Binding(
+                get: { value },
+                set: { entry.wrappedValue.value = .bool($0) }
+            ))
+            
+        case .array(let values):
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(values.indices, id: \.self) { index in
+                    HStack {
+                        TextField("Item \(index + 1)", text: Binding(
+                            get: { values[index] },
+                            set: { newValue in
+                                var updated = values
+                                updated[index] = newValue
+                                entry.wrappedValue.value = .array(updated)
+                            }
+                        ))
+                        .textFieldStyle(.roundedBorder)
+                        
+                        Button {
+                            var updated = values
+                            updated.remove(at: index)
+                            entry.wrappedValue.value = .array(updated)
+                        } label: {
+                            Image(systemName: "minus.circle")
+                        }
+                    }
+                }
+                
+                Button("+ Add Item") {
+                    if case .array(let values) = entry.wrappedValue.value {
+                        entry.wrappedValue.value = .array(values + [""])
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Log Section
+fileprivate extension HomeView {
     var logSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Logs")

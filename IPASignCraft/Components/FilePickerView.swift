@@ -24,7 +24,6 @@ struct FilePickerView: View {
                 .lineLimit(1)
 
             Spacer()
-
             Button("Browse") {
                 self.openPanel()
             }
