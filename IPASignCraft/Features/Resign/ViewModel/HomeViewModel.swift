@@ -81,35 +81,49 @@ class HomeViewModel: ObservableObject {
     }
     
     func addEntitlementPreset(_ type: EntitlementPreset) {
-
+        
         let newEntry: EntitlementEntry
         
         switch type {
-        case .pushNotifications:
+            
+        case .pushNotifications(let env):
             newEntry = EntitlementEntry(
                 key: "aps-environment",
-                value: .string("development")
+                value: .string(env.rawValue)
             )
             
-        case .appGroups:
+        case .appGroups(let groupID):
             newEntry = EntitlementEntry(
                 key: "com.apple.security.application-groups",
-                value: .array(["group.your.app"])
+                value: .array([.string(groupID)])
             )
             
-        case .keychainSharing:
+        case .keychainSharing(let bundleID):
             newEntry = EntitlementEntry(
                 key: "keychain-access-groups",
-                value: .array(["$(AppIdentifierPrefix)group"])
+                value: .array([
+                    .string("$(AppIdentifierPrefix)\(bundleID)")
+                ])
             )
         }
         
-        // Prevent duplicate keys
-        guard !state.entitlementEntries.contains(where: { $0.key == newEntry.key }) else {
-            return
+        if let index = state.entitlementEntries.firstIndex(where: { $0.key == newEntry.key }) {
+            
+            let existing = state.entitlementEntries[index]
+            
+            if case .array(let oldArray) = existing.value,
+               case .array(let newArray) = newEntry.value {
+                
+                let merged = oldArray + newArray
+                state.entitlementEntries[index].value = .array(merged)
+                
+            } else {
+                state.entitlementEntries[index] = newEntry
+            }
+            
+        } else {
+            state.entitlementEntries.append(newEntry)
         }
-        
-        state.entitlementEntries.append(newEntry)
     }
     
     func addEntitlementEntry(
@@ -131,6 +145,7 @@ class HomeViewModel: ObservableObject {
             state.log = "Invalid Certificate...\n"
             return
         }
+        self.state.isSigning = true
         state.log = "Starting resign process...\n"
         Task {
             do {
@@ -139,10 +154,13 @@ class HomeViewModel: ObservableObject {
                     profilePath: state.profilePath,
                     certificate: selectedCertificate.name,
                     newBundleID: state.bundleID,
-                    infoPlistChanges: state.plistEntries
+                    infoPlistChanges: state.plistEntries,
+                    entitlementUpdates: state.entitlementEntries
                 )
-                state.log += "Finished\nOutput: \(result)\n"
-
+                DispatchQueue.main.async {
+                    self.state.isSigning = false
+                    self.state.log += "Finished\nOutput: \(result)\n"
+                }
             } catch {
                 state.log += "Error: \(error.localizedDescription)\n"
             }

@@ -86,8 +86,12 @@ struct HomeState {
     /// Execution logs
     var log: String = ""
     
+    // MARK: - Signing Steps
+    var progress: Double = 0.0
+    var currentStep: SigningStep = .idle
     
     // MARK: - Validation
+    var isSigning: Bool = false
     var isResignEnabled: Bool {
         let hasIPA = !ipaPath.isEmpty
         let hasProfile = !profilePath.isEmpty
@@ -101,5 +105,19 @@ struct HomeState {
         }()
         
         return hasIPA && hasProfile && hasCertificate && !isLoading
+    }
+}
+
+extension HomeState {
+    func isStepCompleted(_ step: SigningStep) -> Bool {
+        switch step {
+        case .extracting: return progress >= 0.15
+        case .validating: return progress >= 0.30
+        case .applyingCert: return progress >= 0.50
+        case .embeddingProfile: return progress >= 0.65
+        case .signing: return progress >= 0.85
+        case .repackaging: return progress >= 1.0
+        default: return false
+        }
     }
 }

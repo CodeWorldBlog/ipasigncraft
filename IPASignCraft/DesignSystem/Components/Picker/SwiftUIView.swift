@@ -32,7 +32,7 @@ struct EntitlementTypePicker: View {
                 case .bool:
                     entry.value = .bool(false)
                 case .array:
-                    entry.value = .array([""])
+                    entry.value = .array([.string("")])
                 }
             }
         )) {

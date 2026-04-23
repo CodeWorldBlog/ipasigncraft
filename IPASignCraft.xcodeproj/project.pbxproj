@@ -11,7 +11,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		C1A8AFFB2F83D5B500A2E421 /* IPASignCraft */ = {
+		C1E5B1C22F99EC64003E538F /* IPASignCraft */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = IPASignCraft;
 			sourceTree = "<group>";
@@ -32,7 +32,7 @@
 		C1A8AFF02F83D5B500A2E421 = {
 			isa = PBXGroup;
 			children = (
-				C1A8AFFB2F83D5B500A2E421 /* IPASignCraft */,
+				C1E5B1C22F99EC64003E538F /* IPASignCraft */,
 				C1A8AFFA2F83D5B500A2E421 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -61,7 +61,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				C1A8AFFB2F83D5B500A2E421 /* IPASignCraft */,
+				C1E5B1C22F99EC64003E538F /* IPASignCraft */,
 			);
 			name = IPASignCraft;
 			packageProductDependencies = (

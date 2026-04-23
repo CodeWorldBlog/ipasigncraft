@@ -14,7 +14,8 @@ struct CodeSignService {
         profilePath: String,
         certificate: String,
         newBundleID: String,
-        infoPlistChanges: [PlistKeyValue]
+        infoPlistChanges: [PlistKeyValue],
+        entitlementUpdates: [EntitlementEntry]
     ) async throws -> String {
         
         // 1. Create temp folder
@@ -35,22 +36,31 @@ struct CodeSignService {
         let appURL = URL(fileURLWithPath: appPath)
         
         // 🔥 4. Update Bundle ID (VERY IMPORTANT)
-        try updateBundleID(at: appURL, newBundleID: newBundleID)
+        try InfoPlistService.updateBundleID(at: appURL, newBundleID: newBundleID)
+        try InfoPlistService.updateInfoPlist(at: appURL, entries: infoPlistChanges)
         try updateExtensions(at: appURL, newBundleID: newBundleID)
-        try updateInfoPlist(at: appURL, entries: infoPlistChanges)
+       
         // 🔍 Debug (optional but powerful)
         try? ShellExecutor.run("grep -R '\(newBundleID)' '\(appPath)' || true")
         
         // 5. Inject provisioning profile
         try ShellExecutor.run("cp '\(profilePath)' '\(appPath)/embedded.mobileprovision'")
         
-        // 6. Remove old signatures
+        // 🔥 6. Prepare entitlements
+        let entitlementsPath = try EntitlementService.prepareEntitlements(
+            appPath: appPath,
+            updates: entitlementUpdates,
+            outputDir: tempPath
+        )
+        
+        
+        // 7. Remove old signatures
         try self.removeOldSignatures(at: appPath)
         
-        // 7. Sign correctly (inside → out)
-        try self.signAppBundle(appPath: appPath, certificate: certificate)
+        // 8. Sign correctly (inside → out)
+        try self.signAppBundle(appPath: appPath, certificate: certificate, entitlementsPath: entitlementsPath)
         
-        // 8. Repack IPA
+        // 9. Repack IPA
         let ipaOutput = "\(tempPath)/resigned.ipa"
         try ShellExecutor.run("""
         ditto -c -k --sequesterRsrc --keepParent "\(tempPath)/Payload" "\(ipaOutput)"
@@ -66,9 +76,13 @@ fileprivate extension CodeSignService {
         try ShellExecutor.run("find '\(appPath)' -name '_CodeSignature' -type d -exec rm -rf {} +")
     }
     
-    func signAppBundle(appPath: String, certificate: String) throws {
-        let fm = FileManager.default
+    func signAppBundle(
+        appPath: String,
+        certificate: String,
+        entitlementsPath: String
+    ) throws {
         
+        let fm = FileManager.default
         let frameworksPath = "\(appPath)/Frameworks"
         let pluginsPath = "\(appPath)/PlugIns"
         
@@ -79,41 +93,34 @@ fileprivate extension CodeSignService {
             for framework in frameworks {
                 let fullPath = "\(frameworksPath)/\(framework)"
                 try ShellExecutor.run("""
-                    codesign --force --sign "\(certificate)" "\(fullPath)"
-                    """)
+                codesign --force --sign "\(certificate)" "\(fullPath)"
+                """)
             }
         }
         
-        // 2. Sign Extensions
+        // 2. Sign Extensions (⚠️ usually WITHOUT entitlements)
         if fm.fileExists(atPath: pluginsPath) {
             let plugins = try fm.contentsOfDirectory(atPath: pluginsPath)
             
             for plugin in plugins {
                 let fullPath = "\(pluginsPath)/\(plugin)"
                 try ShellExecutor.run("""
-                    codesign --force --sign "\(certificate)" "\(fullPath)"
-                    """)
+                codesign --force --sign "\(certificate)" "\(fullPath)"
+                """)
             }
         }
         
-        // 3. Sign Main App LAST
         try ShellExecutor.run("""
-            codesign --force --sign "\(certificate)" "\(appPath)"
-            """)
+        codesign --force \
+        --sign "\(certificate)" \
+        --entitlements "\(entitlementsPath)" \
+        "\(appPath)"
+        """)
     }
 }
 
 //Mark - Update Entitlements
 fileprivate extension CodeSignService {
-    func updateBundleID(at appURL: URL, newBundleID: String) throws {
-        let plistURL = appURL.appendingPathComponent("Info.plist")
-        guard let plist = NSMutableDictionary(contentsOf: plistURL) else {
-            throw NSError(domain: "IPASignCraft", code: 1)
-        }
-        plist["CFBundleIdentifier"] = newBundleID
-        plist.write(to: plistURL, atomically: true)
-    }
-    
     func updateExtensions(at appURL: URL, newBundleID: String) throws {
         let pluginsURL = appURL.appendingPathComponent("PlugIns")
         
@@ -137,20 +144,6 @@ fileprivate extension CodeSignService {
             
             plist.write(to: plistURL, atomically: true)
         }
-    }
-    
-    func updateInfoPlist(
-        at appURL: URL,
-        entries: [PlistKeyValue]
-    ) throws {
-        let plistURL = appURL.appendingPathComponent("Info.plist")
-        guard let plist = NSMutableDictionary(contentsOf: plistURL) else {
-            throw NSError(domain: "IPASignCraft", code: 2)
-        }
-        for entry in entries {
-            plist[entry.key] = self.parsePlistValue(entry.value)
-        }
-        plist.write(to: plistURL, atomically: true)
     }
 }
 
@@ -193,32 +186,5 @@ fileprivate extension CodeSignService {
         )
         
         return tempURL.path
-    }
-    
-    func parsePlistValue(_ input: String) -> Any {
-        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        // Bool
-        if trimmed.lowercased() == "true" { return true }
-        if trimmed.lowercased() == "false" { return false }
-        
-        // Int
-        if let intVal = Int(trimmed) {
-            return intVal
-        }
-        
-        // Double
-        if let doubleVal = Double(trimmed) {
-            return doubleVal
-        }
-        
-        // Array (comma-separated: a,b,c)
-        if trimmed.contains(",") {
-            return trimmed
-                .split(separator: ",")
-                .map { String($0).trimmingCharacters(in: .whitespaces) }
-        }
-        // Default → String
-        return trimmed
     }
 }
