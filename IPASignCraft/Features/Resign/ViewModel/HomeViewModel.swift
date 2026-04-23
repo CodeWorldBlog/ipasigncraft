@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Combine
+internal import UniformTypeIdentifiers
 
 @MainActor
 class HomeViewModel: ObservableObject {
@@ -48,7 +49,6 @@ class HomeViewModel: ObservableObject {
         Task {
             do {
                 let certs = try KeychainService.fetchCertificatesAfterUnlock(password: password)
-
                 state.certificates = certs
                 state.selectedCertificate = certs.first
                 state.showUnlockPrompt = false
@@ -61,11 +61,13 @@ class HomeViewModel: ObservableObject {
 
     // MARK: - Update Inputs
     func updateIPAPath(_ path: String) {
-        state.ipaPath = path
+        let ipaURL = URL(fileURLWithPath: path)
+        state.ipaURL = ipaURL
     }
 
     func updateProfilePath(_ path: String) {
-        state.profilePath = path
+        let profileURL = URL(fileURLWithPath: path)
+        state.profileURL = profileURL
         if let bundleID = self.bundleIdentifier(forProfileAtPath: path) {
             state.bundleID = bundleID
             state.useCustomBundleID = true
@@ -108,7 +110,6 @@ class HomeViewModel: ObservableObject {
         }
         
         if let index = state.entitlementEntries.firstIndex(where: { $0.key == newEntry.key }) {
-            
             let existing = state.entitlementEntries[index]
             
             if case .array(let oldArray) = existing.value,
@@ -141,28 +142,38 @@ class HomeViewModel: ObservableObject {
 
     // MARK: - Resign
     func resign() {
-        guard let selectedCertificate = state.selectedCertificate else {
+        guard let ipaURL = state.ipaURL, let profileURL = state.profileURL else {
+            state.log = "IPA is missing or profile is misisng...\n"
+            return
+        }
+        guard let selectedCertificate = self.getSigningRequest() else {
             state.log = "Invalid Certificate...\n"
             return
         }
+        
         self.state.isSigning = true
         state.log = "Starting resign process...\n"
         Task {
             do {
+                let signingOptions = SigningOptions(newBundleID: state.bundleID, modifyPlist: state.enablePlistEditing, plistEntries: state.plistEntries, modifyEntitlements: state.enableEntitlementEditing, entitlementEntries: state.entitlementEntries)
+                
                 let result = try await resignService.resignIPA(
-                    ipaPath: state.ipaPath,
-                    profilePath: state.profilePath,
-                    certificate: selectedCertificate.name,
-                    newBundleID: state.bundleID,
-                    infoPlistChanges: state.plistEntries,
-                    entitlementUpdates: state.entitlementEntries
-                )
-                DispatchQueue.main.async {
+                    ipaURL: ipaURL,
+                    profileURL: profileURL,
+                    certificate: selectedCertificate,
+                    options: signingOptions) { step in
+                        self.state.currentStep = step
+                    }
+                await MainActor.run  {
                     self.state.isSigning = false
                     self.state.log += "Finished\nOutput: \(result)\n"
+                    self.saveIPA(at: result)
                 }
             } catch {
-                state.log += "Error: \(error.localizedDescription)\n"
+                await MainActor.run {
+                    self.state.isSigning = false
+                    state.log += "Error: \(error.localizedDescription)\n"
+                }
             }
         }
     }
@@ -171,10 +182,37 @@ class HomeViewModel: ObservableObject {
 fileprivate extension HomeViewModel {
     func bundleIdentifier(forProfileAtPath path: String) -> String? {
         do {
-             return try ProvisionExtractService.extractBundleID(from: path)
+            return try ProvisionExtractService.extractBundleID(from: path)
         } catch {
             state.log += "Error: \(error.localizedDescription)\n"
         }
         return nil
+    }
+    
+    func getSigningRequest() -> CertificateRequest? {
+        if self.state.certMode == .custom {
+            let p12URL = URL(fileURLWithPath: state.p12Path)
+            return CertificateRequest.p12(url: p12URL, password: state.p12Password)
+        } else if let selectedCertificate = state.selectedCertificate {
+            return CertificateRequest.saved(selectedCertificate)
+        }
+        return nil
+    }
+    
+    func saveIPA(at tempURL: URL) {
+        let panel = NSSavePanel()
+        panel.title = "Save Resigned IPA"
+        panel.nameFieldStringValue = "resigned.ipa"
+        panel.allowedContentTypes = [.zip] // or UTType(filenameExtension: "ipa")
+
+        panel.begin { response in
+            if response == .OK, let destinationURL = panel.url {
+                do {
+                    try FileManager.default.copyItem(at: tempURL, to: destinationURL)
+                } catch {
+                    print("Save failed:", error)
+                }
+            }
+        }
     }
 }

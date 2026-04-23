@@ -10,6 +10,7 @@ import SwiftUI
 
 struct CertificatePickerView: View {
 
+    var title: String = "Certificate"
     let certificates: [SigningCertificate]
     @Binding var selected: SigningCertificate?
 
@@ -17,7 +18,7 @@ struct CertificatePickerView: View {
 
         VStack(alignment: .leading, spacing: 6) {
 
-            Text("Certificate")
+            Text(title)
                 .font(.caption)
                 .foregroundColor(.secondary)
 

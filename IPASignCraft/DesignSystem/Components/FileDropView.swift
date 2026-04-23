@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct FileDropView: View {
-    let title: String
+    let title: String?
     @Binding var filePath: String
     @State private var isHovering = false
 
@@ -17,11 +17,11 @@ struct FileDropView: View {
         VStack(alignment: .leading, spacing: 10) {
 
             // Title
-            Text(title)
-                .font(.headline)
-
+            if let title {
+                Text(title)
+                    .font(.headline)
+            }
             ZStack {
-
                 RoundedRectangle(cornerRadius: 12)
                     .strokeBorder(
                         style: StrokeStyle(lineWidth: 1.2, dash: [6])

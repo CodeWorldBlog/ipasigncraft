@@ -7,57 +7,32 @@
 
 import SwiftUI
 
+/// Main screen for IPA re-signing workflow
+/// Responsible only for layout + binding UI to ViewModel state
 struct HomeView: View {
+    /// Central state holder for all signing inputs and progress
     @StateObject private var viewModel = HomeViewModel()
+    
     var body: some View {
         ZStack {
+            /// Background layer (visual only, no interaction)
             homeBackground
-            HStack(alignment: .top, spacing: 24) {
-                // LEFT SIDE
-                leftSection
-                // RIGHT SIDE
-                rightSection
-                    .frame(width: 300)
+            
+            /// Main two-column layout
+            HStack(alignment: .top, spacing: Spacing.xxl) {
+                leftSection.frame(maxWidth: 720)       // Input + configuration
+                rightSection     // Status + logs
+                    .frame(width: 320)
             }
-            .padding(.horizontal)
+            .padding(.horizontal, Spacing.md)
+            .frame(maxWidth: .infinity, alignment: .center)
         }
-    }
-}
-
-//MARK: - Input Section
-private extension HomeView {
-    var leftSection: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                headerSection
-                ipaCard
-                provisionSection
-                advancedSection
-                certificateSection
-                actionSection
-            }
-            .padding(50)
-            .frame(maxWidth: 680)
-        }
-    }
-}
-
-//MARK: - output Section
-fileprivate extension HomeView {
-    var rightSection: some View {
-        VStack(spacing: 20) {
-            progressSection
-            logsSection
-            Spacer()
-        }
-        .padding(.top, 30)
     }
 }
 
 // MARK: - Background
 private extension HomeView {
-    /// Watercolor background with soft white overlay
-    /// Keeps UI readable while preserving aesthetic
+    /// Watercolor background with soft overlay for readability
     var homeBackground: some View {
         GeometryReader { geo in
             Image("homeBgWatercolor")
@@ -65,120 +40,123 @@ private extension HomeView {
                 .aspectRatio(contentMode: .fill)
                 .frame(width: geo.size.width, height: geo.size.height)
                 .clipped()
+                .overlay(Color.white.opacity(0.6))
         }
+    }
+}
+
+//MARK: - Input Section
+private extension HomeView {
+    /// Left column: user inputs and configuration
+    var leftSection: some View {
+        ScrollView {
+            VStack(spacing: Spacing.base) {
+                headerSection
+                ipaSection
+                provisionSection
+                advancedSection
+                certificateSection
+                actionSection
+            }
+            .padding(Spacing.xxl)
+            .frame(maxWidth: 720)
+        }
+    }
+}
+
+//MARK: - output Section
+private extension HomeView {
+    /// Right column: signing progress and logs
+    var rightSection: some View {
+        VStack(spacing: Spacing.base) {
+            progressSection
+            logsSection
+            Spacer()
+        }
+        .padding(.top, Spacing.lg)
     }
 }
 
 // MARK: - Header
-fileprivate extension HomeView {
+private extension HomeView {
+    /// App title and short description
     var headerSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("IPASignCraft").font(.largeTitle).fontWeight(.semibold)
-            Text("Craft a new signature for your IPA") .foregroundColor(.secondary)
-        }
-    }
-}
-
-fileprivate extension HomeView {
-    var ipaCard: some View {
-        Card {
-            // MARK: - Section Title
-            Label("IPA File", systemImage: "doc")
-            // MARK: - Optional Hint (keeps UI friendly)
-            Text("Select or drop the IPA you want to re-sign")
-                .font(.caption)
-                .foregroundColor(.secondary)
-            // MARK: - Drop Zone
-            FileDropView(
-                title: "IPA File",
-                filePath: Binding(
-                    get: { viewModel.state.ipaPath },
-                    set: { viewModel.updateIPAPath($0) }
-                )
-            )
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            Text("IPASignCraft")
+                .font(AppFont.title)
             
-            // MARK: - File Info (only when selected)
-            if !viewModel.state.ipaPath.isEmpty {
-                ipaInfoRow
-            }
+            Text("Craft a new signature for your IPA")
+                .font(AppFont.secondary)
+                .foregroundColor(AppColors.secondaryText)
         }
-    }
-    
-    var ipaInfoRow: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "doc.fill")
-                .foregroundColor(.blue)
-            VStack(alignment: .leading, spacing: 2) {
-                Text((viewModel.state.ipaPath as NSString).lastPathComponent)
-                    .font(.caption)
-                    .lineLimit(1)
-                Text("Ready for signing")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
-            Spacer()
-        }
-        .padding(10)
-        .background(Color(NSColor.controlBackgroundColor))
-        .cornerRadius(8)
     }
 }
 
-fileprivate extension HomeView {
-    
+private extension HomeView {
+    /// IPA input: drag/drop or browse file
+    var ipaSection: some View {
+        HomeSectionView("IPA File") {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                
+                /// Helper text for clarity
+                Text("Select or drop the IPA you want to re-sign")
+                    .font(AppFont.secondary)
+                    .foregroundColor(AppColors.secondaryText)
+                
+                /// File input binding to ViewModel
+                FileDropView(
+                    title: nil, filePath: Binding(
+                        get: { viewModel.state.ipaURL?.path ?? ""},
+                        set: { viewModel.updateIPAPath($0) }
+                    )
+                )
+
+                /// Show file summary when selected
+                if let ipaPath = viewModel.state.ipaURL?.path {
+                    infoRow(
+                        icon: "doc.fill",
+                        color: AppColors.accent,
+                        title: (ipaPath as NSString).lastPathComponent,
+                        subtitle: "Ready for signing"
+                    )
+                }
+            }
+        }
+    }
+}
+
+private extension HomeView {
+    /// Provisioning profile selection and validation
     var provisionSection: some View {
-        Card {
-            // MARK: - Section Title
-            Label("Provisioning Profile", systemImage: "shield")
-            // MARK: - Hint
-            Text("Select the provisioning profile to embed")
-                .font(.caption)
-                .foregroundColor(.secondary)
-            // MARK: - Picker
-            FilePickerView(
-                title: "Select Profile",
-                supportedTypes: [".mobileprovision"],
-                filePath: Binding(
-                    get: { viewModel.state.profilePath },
-                    set: { viewModel.updateProfilePath($0) }
+        HomeSectionView("Provisioning Profile") {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                
+                Text("Select the provisioning profile to embed")
+                    .font(AppFont.secondary)
+                    .foregroundColor(AppColors.secondaryText)
+                
+                /// Profile picker
+                FilePickerView(
+                    title: "Select Profile",
+                    supportedTypes: [".mobileprovision"],
+                    filePath: Binding(
+                        get: { viewModel.state.profileURL?.path ?? "" },
+                        set: { viewModel.updateProfilePath($0) }
+                    )
                 )
-            )
-            
-            // MARK: - Selected File Info
-            if !viewModel.state.profilePath.isEmpty {
-                provisionInfoRow
-            }
-        }
-    }
-    
-    var provisionInfoRow: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "checkmark.seal.fill")
-                .foregroundColor(.green)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text((viewModel.state.profilePath as NSString).lastPathComponent)
-                    .font(.caption)
-                    .lineLimit(1)
-                provisionBundleID
-                Text("Profile ready")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
-            Spacer()
-        }
-        .padding(10)
-        .background(Color(NSColor.controlBackgroundColor))
-        .cornerRadius(8)
-    }
-    
-    // MARK: - App Bundle ID
-    var provisionBundleID: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                Text("Bundle ID: ")
-                    .bold()
-                Text(viewModel.state.bundleID)
+                
+                /// Display selected profile info
+                if let profilePath = viewModel.state.profileURL?.path {
+                    infoRow(
+                        icon: "checkmark.seal.fill",
+                        color: AppColors.success,
+                        title: (profilePath as NSString).lastPathComponent,
+                        subtitle: "Profile ready"
+                    )
+                    /// Derived bundle identifier
+                    Text("Bundle ID: \(viewModel.state.bundleID)")
+                        .font(AppFont.secondary)
+                }
             }
         }
     }
@@ -186,33 +164,45 @@ fileprivate extension HomeView {
 
 // MARK: - Advance Section
 fileprivate extension HomeView {
-    // MARK: - Advanced Options Section
     var advancedSection: some View {
-        Card {
-            // MARK: - Title
-            Label("Advanced Options", systemImage: "slider.horizontal.3")
-            
-            Text("Customize Info.plist and entitlements if needed")
-                .font(.caption)
-                .foregroundColor(.secondary)
-            
-            VStack(spacing: 20) {
-                // MARK: - Info.plist Section
-                advancedToggleSection(
-                    title: "Modify Info.plist",
-                    isOn: $viewModel.state.enablePlistEditing
-                ) {
-                    plistSection
+        HomeSectionView("") {
+            VStack(alignment: .leading, spacing: Spacing.base) {
+                
+                // Header Row
+                HStack {
+                    Label("Advanced Options", systemImage: "slider.horizontal.3")
+                        .font(AppFont.section)
+                    
+                    Spacer()
+                    
+                    Toggle("", isOn: self.$viewModel.state.isAdvancedExpanded)
+                        .labelsHidden()
                 }
                 
-                Divider().opacity(0.2)
+                // Optional hint
+                Text("Optional customization for advanced users")
+                    .font(AppFont.secondary)
+                    .foregroundColor(AppColors.secondaryText)
                 
-                // MARK: - Entitlement Section
-                advancedToggleSection(
-                    title: "Modify Entitlements",
-                    isOn: $viewModel.state.enableEntitlementEditing
-                ) {
-                    entitlementSection
+                // Content
+                if self.viewModel.state.isAdvancedExpanded {
+                    VStack(spacing: Spacing.base) {
+                        
+                        VStack(alignment: .leading, spacing: Spacing.sm) {
+                            Text("Info.plist")
+                                .font(AppFont.body)
+                            plistSection
+                        }
+                        
+                        Divider().opacity(0.2)
+                        
+                        VStack(alignment: .leading, spacing: Spacing.sm) {
+                            Text("Entitlements")
+                                .font(AppFont.body)
+                            entitlementSection
+                        }
+                    }
+                    .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
         }
@@ -422,144 +412,99 @@ fileprivate extension HomeView {
     }
 }
 
-fileprivate extension HomeView {
-    func advancedToggleSection<Content: View>(
-        title: String,
-        isOn: Binding<Bool>,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        
-        VStack(alignment: .leading, spacing: 10) {
-            
-            Toggle(title, isOn: isOn)
-            
-            if isOn.wrappedValue {
-                content()
-                    .padding(.leading, 10)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-        }
-    }
-}
-
 // MARK: -  Certificate Section
-fileprivate extension HomeView {
+private extension HomeView {
+    /// Certificate selection (custom or saved)
     var certificateSection: some View {
-        Card {
-            // MARK: - Title
-            Label("Certificate", systemImage: "key")
-            
-            Text("Choose a saved certificate or provide a custom .p12 file")
-                .font(.caption)
-                .foregroundColor(.secondary)
-            
-            VStack(spacing: 16) {
+        HomeSectionView("Certificate") {
+            VStack(spacing: Spacing.base) {
+                // Selection
+                Picker("", selection: self.$viewModel.state.certMode) {
+                    Text("Keychian Certificate").tag(CertificateMode.keychain)
+                    Text("Custom (.p12)").tag(CertificateMode.custom)
+                }
+                .pickerStyle(.segmented)
                 
-                Toggle("Use custom certificate (.p12)", isOn: $viewModel.state.useCustomCert)
-                
-                if viewModel.state.useCustomCert {
+                // Content
+                if self.viewModel.state.certMode == .custom {
                     customCertificateView
-                        .padding(.leading, 10)
                         .transition(.opacity.combined(with: .move(edge: .top)))
                 } else {
                     savedCertificateView
-                        .padding(.leading, 10)
                         .transition(.opacity.combined(with: .move(edge: .top)))
                 }
-            }
+            }.frame(maxWidth: .infinity, alignment: .leading)
         }
     }
     
+    /// Custom certificate input (.p12 + password)
     var customCertificateView: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Custom Certificate")
-                .font(.subheadline)
-                .fontWeight(.semibold)
-            
+        VStack(alignment: .leading, spacing: Spacing.base) {
+            // File picker
             FilePickerView(
                 title: "Select .p12",
                 supportedTypes: [".p12"],
                 filePath: $viewModel.state.p12Path
             )
             
+            // Password input
             SecureField("Password", text: $viewModel.state.p12Password)
                 .textFieldStyle(.roundedBorder)
         }
-        .padding(12)
-        .background(Color(NSColor.controlBackgroundColor))
-        .cornerRadius(10)
+        .fieldContainer()
     }
     
+    /// Saved certificate selection from local store
     var savedCertificateView: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            
-            Text("Saved Certificates")
-                .font(.subheadline)
-                .fontWeight(.semibold)
-            
+        VStack(alignment: .leading, spacing: Spacing.base) {
             CertificatePickerView(
+                title: "Keychian Certificate",
                 certificates: viewModel.state.certificates,
                 selected: $viewModel.state.selectedCertificate
             )
         }
-        .padding(12)
-        .background(Color(NSColor.controlBackgroundColor))
-        .cornerRadius(10)
+        .fieldContainer()
     }
 }
 
 // MARK: - Actions Section
-fileprivate extension HomeView {
+private extension HomeView {
+    /// Final trigger for signing process
     var actionSection: some View {
-        Card {
-            // MARK: - Title
-            Label("Action", systemImage: "bolt")
-            // MARK: - Status Hint
-            Text(actionStatusText)
-                .font(.caption)
-                .foregroundColor(.secondary)
-            
-            // MARK: - Button
-            Button {
-                viewModel.resign()
-            } label: {
-                Text(viewModel.state.isSigning ? "Signing..." : "Re-sign IPA")
-                    .fontWeight(.semibold)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-            }
-            .background(
-                LinearGradient(
-                    colors: [
-                        Color.blue.opacity(0.85),
-                        Color.orange.opacity(0.85)
-                    ],
-                    startPoint: .leading,
-                    endPoint: .trailing
+        HomeSectionView("Action") {
+            VStack(spacing: Spacing.sm) {
+                
+                /// Dynamic status hint
+                Text(actionStatusText)
+                    .font(AppFont.secondary)
+                    .foregroundColor(AppColors.secondaryText)
+                
+                /// Primary action button
+                PrimaryButton(
+                    title: viewModel.state.isSigning ? "Signing..." : "Re-sign IPA",
+                    action: {
+                        viewModel.resign()
+                    },
+                    isEnabled: viewModel.state.isResignEnabled && !viewModel.state.isSigning
                 )
-            )
-            .foregroundColor(.white)
-            .cornerRadius(12)
-            .disabled(!viewModel.state.isResignEnabled || viewModel.state.isSigning)
+            }
         }
     }
     
+    /// Derived UI message based on state
     var actionStatusText: String {
         if viewModel.state.isSigning {
             return "Signing in progress..."
         }
-        
-        if viewModel.state.isResignEnabled {
-            return "Ready to re-sign IPA"
-        } else {
-            return "Select required inputs to enable signing"
-        }
+        return viewModel.state.isResignEnabled
+        ? "Ready to re-sign IPA"
+        : "Select required inputs to enable signing"
     }
 }
 
 fileprivate extension HomeView {
     var progressSection: some View {
-        Card {
+        AppCard {
             Label("Signing Status", systemImage: "waveform.path.ecg")
             
             VStack(alignment: .leading, spacing: 14) {
@@ -592,7 +537,7 @@ fileprivate extension HomeView {
 // MARK: - Log Section
 fileprivate extension HomeView {
     var logsSection: some View {
-        Card {
+        AppCard {
             HStack {
                 Label("Logs", systemImage: "terminal")
                 Spacer()
@@ -612,6 +557,48 @@ fileprivate extension HomeView {
             .cornerRadius(10)
             .foregroundColor(.green)
         }
+    }
+}
+
+//MARK: - Resusable
+fileprivate extension HomeView {
+    func advancedToggleSection<Content: View>(
+        title: String,
+        isOn: Binding<Bool>,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        
+        VStack(alignment: .leading, spacing: 10) {
+            
+            Toggle(title, isOn: isOn)
+            
+            if isOn.wrappedValue {
+                content()
+                    .padding(.leading, 10)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+    
+    /// Small reusable row for selected file summaries
+    func infoRow(icon: String, color: Color, title: String, subtitle: String) -> some View {
+        HStack(spacing: Spacing.sm) {
+            Image(systemName: icon)
+                .foregroundColor(color)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(AppFont.secondary)
+                    .lineLimit(1)
+                
+                Text(subtitle)
+                    .font(AppFont.secondary)
+                    .foregroundColor(AppColors.secondaryText)
+            }
+            
+            Spacer()
+        }
+        .fieldContainer()
     }
 }
 

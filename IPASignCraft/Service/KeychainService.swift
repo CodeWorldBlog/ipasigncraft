@@ -34,29 +34,39 @@ struct KeychainService {
         let result = try ShellExecutor.runWithOutput("""
         security find-identity -v -p codesigning
         """)
+
         let output = result.output
-        // Detect locked keychain
+
         if output.contains("User interaction is not allowed") {
             throw KeychainError.locked
         }
 
-        // Parse certificates
-        let names = output
+        let certificates: [SigningCertificate] = output
             .components(separatedBy: "\n")
-            .compactMap { line -> String? in
+            .compactMap { line -> SigningCertificate? in
 
+                // Extract SHA-1 identity (second token)
+                let parts = line.trimmingCharacters(in: .whitespaces).split(separator: " ")
+
+                guard parts.count > 1 else { return nil }
+
+                let identity = String(parts[1])
+
+                // Extract name inside quotes
                 guard let start = line.firstIndex(of: "\""),
                       let end = line.lastIndex(of: "\""),
                       start < end else { return nil }
 
-                return String(line[line.index(after: start)..<end])
+                let name = String(line[line.index(after: start)..<end])
+
+                return SigningCertificate(name: name, identity: identity)
             }
 
-        if names.isEmpty {
+        if certificates.isEmpty {
             throw KeychainError.noCertificates
         }
 
-        return names.map { SigningCertificate(name: $0) }
+        return certificates
     }
 
     // MARK: - Unlock Keychain (Optional)

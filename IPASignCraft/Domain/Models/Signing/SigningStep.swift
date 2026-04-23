@@ -8,10 +8,12 @@
 
 enum SigningStep: String, CaseIterable {
     case idle
+    case preparing = "Start Preparing"
     case extracting = "Extract IPA"
-    case validating = "Validate Files"
-    case applyingCert = "Apply Certificate"
+    case modifying = "Modifying IPA"
     case embeddingProfile = "Embed Profile"
+    case removeOldSign = "Remove Old Sign"
+    case applyingCert = "Apply Certificate"
     case signing = "Code Sign"
     case repackaging = "Repackage IPA"
 

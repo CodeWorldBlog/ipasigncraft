@@ -7,15 +7,20 @@
 
 import Foundation
 
+enum CertificateMode {
+    case keychain
+    case custom
+}
+
 struct HomeState {
     
     // MARK: - Input Files
     
     /// Selected IPA file path
-    var ipaPath: String = ""
+    var ipaURL: URL?
     
     /// Selected provisioning profile path
-    var profilePath: String = ""
+    var profileURL: URL?
     
     
     // MARK: - App Identity
@@ -50,8 +55,8 @@ struct HomeState {
     
     // MARK: - Certificate Configuration
     
-    /// Toggle between saved and custom certificate
-    var useCustomCert: Bool = false
+    /// Selection between keychian and custom certificate
+    var certMode: CertificateMode = .keychain
     
     /// Path to custom .p12 certificate
     var p12Path: String = ""
@@ -71,6 +76,8 @@ struct HomeState {
     /// Indicates resign process is running
     var isLoading: Bool = false
     
+    /// Indicates Advance  Option Expand/Collapse
+    var isAdvancedExpanded = false
     
     // MARK: - UI State
     
@@ -79,8 +86,6 @@ struct HomeState {
     
     /// Whether unlock prompt should be shown
     var showUnlockPrompt: Bool = false
-    
-    
     // MARK: - Logs
     
     /// Execution logs
@@ -93,11 +98,11 @@ struct HomeState {
     // MARK: - Validation
     var isSigning: Bool = false
     var isResignEnabled: Bool {
-        let hasIPA = !ipaPath.isEmpty
-        let hasProfile = !profilePath.isEmpty
+        let hasIPA = (ipaURL != nil)
+        let hasProfile = (profileURL != nil)
         
         let hasCertificate: Bool = {
-            if useCustomCert {
+            if self.certMode == .custom {
                 return !p12Path.isEmpty && !p12Password.isEmpty
             } else {
                 return selectedCertificate != nil
@@ -111,13 +116,16 @@ struct HomeState {
 extension HomeState {
     func isStepCompleted(_ step: SigningStep) -> Bool {
         switch step {
+        case .preparing: return progress >= 0.5
         case .extracting: return progress >= 0.15
-        case .validating: return progress >= 0.30
-        case .applyingCert: return progress >= 0.50
-        case .embeddingProfile: return progress >= 0.65
-        case .signing: return progress >= 0.85
+        case .modifying: return progress >= 0.30
+        case .embeddingProfile: return progress >= 0.5
+        case .removeOldSign: return progress >= 0.65
+        case .applyingCert: return progress >= 0.8
+        case .signing: return progress >= 0.9
         case .repackaging: return progress >= 1.0
         default: return false
         }
     }
 }
+

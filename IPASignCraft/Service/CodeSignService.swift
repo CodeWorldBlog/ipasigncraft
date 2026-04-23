@@ -7,120 +7,157 @@
 
 import Foundation
 
+
 struct CodeSignService {
     
     func resignIPA(
-        ipaPath: String,
-        profilePath: String,
-        certificate: String,
-        newBundleID: String,
-        infoPlistChanges: [PlistKeyValue],
-        entitlementUpdates: [EntitlementEntry]
-    ) async throws -> String {
+        ipaURL: URL,
+        profileURL: URL,
+        certificate: CertificateRequest,
+        options: SigningOptions,
+        progress: ((SigningStep) -> Void)? = nil
+    ) async throws -> URL {
         
-        // 1. Create temp folder
-        let tempPath = try createTempDirectory(for: ipaPath)
-        
-        // 2. Extract IPA
-        try IPAExtractorService.extractIPA(at: ipaPath, to: tempPath)
-        
-        // 3. Locate Payload/App
-        let payloadPath = try getPayloadPath(from: tempPath)
-        let apps = try FileManager.default.contentsOfDirectory(atPath: payloadPath)
-        
-        guard let app = apps.first(where: { $0.hasSuffix(".app") }) else {
-            throw NSError(domain: "AppNotFound", code: 1)
-        }
-        
-        let appPath = "\(payloadPath)/\(app)"
-        let appURL = URL(fileURLWithPath: appPath)
-        
-        // 🔥 4. Update Bundle ID (VERY IMPORTANT)
-        try InfoPlistService.updateBundleID(at: appURL, newBundleID: newBundleID)
-        try InfoPlistService.updateInfoPlist(at: appURL, entries: infoPlistChanges)
-        try updateExtensions(at: appURL, newBundleID: newBundleID)
+        progress?(.preparing)
+        // 1. Create temp workspace
+        let workspace = try createWorkspace()
        
-        // 🔍 Debug (optional but powerful)
-        try? ShellExecutor.run("grep -R '\(newBundleID)' '\(appPath)' || true")
+        // 2. Extract IPA
+        progress?(.extracting)
+        let appURL = try IPAExtractorService.extractIPA(at: ipaURL, to: workspace)
         
-        // 5. Inject provisioning profile
-        try ShellExecutor.run("cp '\(profilePath)' '\(appPath)/embedded.mobileprovision'")
+        // 3. Apply advanced options
+        var entitlementsURL: URL?
+        if options.modifyPlist || options.modifyEntitlements {
+            progress?(.extracting)
+            entitlementsURL = try applyAdvancedOptions(options, to: appURL, workspace: workspace)
+        }
+       
         
-        // 🔥 6. Prepare entitlements
-        let entitlementsPath = try EntitlementService.prepareEntitlements(
-            appPath: appPath,
-            updates: entitlementUpdates,
-            outputDir: tempPath
+        // 4. Inject provisioning profile
+        progress?(.embeddingProfile)
+        let destination = appURL.appendingPathComponent("embedded.mobileprovision")
+        _ = try FileManager.default.replaceItemAt(
+            destination,
+            withItemAt: profileURL
         )
         
+        // 5. Remove old signatures
+        progress?(.removeOldSign)
+        try removeOldSignatures(at: appURL)
         
-        // 7. Remove old signatures
-        try self.removeOldSignatures(at: appPath)
+        // 6. Resolve certificate identity
+        progress?(.applyingCert)
+        let certIdentity = try resolveCertificateIdentity(certificate)
         
-        // 8. Sign correctly (inside → out)
-        try self.signAppBundle(appPath: appPath, certificate: certificate, entitlementsPath: entitlementsPath)
+        // 7. Sign app bundle
+        progress?(.signing)
+        try signAppBundle(
+            appURL: appURL,
+            certificate: certIdentity,
+            entitlementsURL: entitlementsURL
+        )
         
-        // 9. Repack IPA
-        let ipaOutput = "\(tempPath)/resigned.ipa"
+        // 8. Repack IPA
+        progress?(.repackaging)
+        let outputIPA = workspace.appendingPathComponent("resigned.ipa")
         try ShellExecutor.run("""
-        ditto -c -k --sequesterRsrc --keepParent "\(tempPath)/Payload" "\(ipaOutput)"
+        ditto -c -k --sequesterRsrc --keepParent "\(workspace.appendingPathComponent("Payload").path)" "\(outputIPA.path)"
         """)
-        return ipaOutput
+        
+        return outputIPA
     }
 }
 
 //MARK: - App sign Process
 fileprivate extension CodeSignService {
-    func removeOldSignatures(at appPath: String) throws {
-        try ShellExecutor.run("rm -rf '\(appPath)/_CodeSignature'")
-        try ShellExecutor.run("find '\(appPath)' -name '_CodeSignature' -type d -exec rm -rf {} +")
+    func removeOldSignatures(at appURL: URL) throws {
+        let path = appURL.path
+        
+        try ShellExecutor.run("rm -rf '\(path)/_CodeSignature'")
+        try ShellExecutor.run("find '\(path)' -name '_CodeSignature' -type d -exec rm -rf {} +")
     }
     
     func signAppBundle(
-        appPath: String,
+        appURL: URL,
         certificate: String,
-        entitlementsPath: String
+        entitlementsURL: URL?
     ) throws {
         
         let fm = FileManager.default
-        let frameworksPath = "\(appPath)/Frameworks"
-        let pluginsPath = "\(appPath)/PlugIns"
+        
+        let frameworksURL = appURL.appendingPathComponent("Frameworks")
+        let pluginsURL = appURL.appendingPathComponent("PlugIns")
         
         // 1. Sign Frameworks
-        if fm.fileExists(atPath: frameworksPath) {
-            let frameworks = try fm.contentsOfDirectory(atPath: frameworksPath)
+        if fm.fileExists(atPath: frameworksURL.path) {
+            let frameworks = try fm.contentsOfDirectory(at: frameworksURL, includingPropertiesForKeys: nil)
             
             for framework in frameworks {
-                let fullPath = "\(frameworksPath)/\(framework)"
                 try ShellExecutor.run("""
-                codesign --force --sign "\(certificate)" "\(fullPath)"
+                codesign --force --sign "\(certificate)" "\(framework.path)"
                 """)
             }
         }
         
-        // 2. Sign Extensions (⚠️ usually WITHOUT entitlements)
-        if fm.fileExists(atPath: pluginsPath) {
-            let plugins = try fm.contentsOfDirectory(atPath: pluginsPath)
+        // 2. Sign Extensions
+        if fm.fileExists(atPath: pluginsURL.path) {
+            let plugins = try fm.contentsOfDirectory(at: pluginsURL, includingPropertiesForKeys: nil)
             
             for plugin in plugins {
-                let fullPath = "\(pluginsPath)/\(plugin)"
                 try ShellExecutor.run("""
-                codesign --force --sign "\(certificate)" "\(fullPath)"
+                codesign --force --sign "\(certificate)" "\(plugin.path)"
                 """)
             }
         }
         
-        try ShellExecutor.run("""
-        codesign --force \
-        --sign "\(certificate)" \
-        --entitlements "\(entitlementsPath)" \
-        "\(appPath)"
-        """)
+        // 3. Sign main app
+        if let entitlementsURL {
+            try ShellExecutor.run("""
+            codesign --force \
+            --sign "\(certificate)" \
+            --entitlements "\(entitlementsURL.path)" \
+            "\(appURL.path)"
+            """)
+        } else {
+            try ShellExecutor.run("""
+            codesign --force \
+            --sign "\(certificate)" \
+            "\(appURL.path)"
+            """)
+        }
     }
 }
 
-//Mark - Update Entitlements
+//Mark - Advanced Options
 fileprivate extension CodeSignService {
+    func applyAdvancedOptions(
+        _ options: SigningOptions,
+        to appURL: URL,
+        workspace: URL
+    ) throws -> URL? {
+        // Bundle ID update
+        let bundleID = options.newBundleID
+        try InfoPlistService.updateBundleID(at: appURL, newBundleID: bundleID)
+        try updateExtensions(at: appURL, newBundleID: bundleID)
+        
+        // Info.plist updates
+        if options.modifyPlist {
+            try InfoPlistService.updateInfoPlist(at: appURL, entries: options.plistEntries)
+        }
+        
+        // Entitlements
+        if options.modifyEntitlements {
+            return try EntitlementService.prepareEntitlements(
+                appURL: appURL,
+                updates: options.entitlementEntries,
+                outputDir: workspace
+            )
+        }
+        
+        return nil
+    }
+    
     func updateExtensions(at appURL: URL, newBundleID: String) throws {
         let pluginsURL = appURL.appendingPathComponent("PlugIns")
         
@@ -128,7 +165,6 @@ fileprivate extension CodeSignService {
         
         let extensions = try FileManager.default.contentsOfDirectory(at: pluginsURL,
                                                                      includingPropertiesForKeys: nil)
-        
         for ext in extensions where ext.pathExtension == "appex" {
             let plistURL = ext.appendingPathComponent("Info.plist")
             
@@ -149,42 +185,70 @@ fileprivate extension CodeSignService {
 
 //Mark - Helper Method
 fileprivate extension CodeSignService {
-    func getPayloadPath(from tempURL: String) throws -> String {
-        let ipaURL = URL(fileURLWithPath: tempURL)
-        let payloadURL = ipaURL.appendingPathComponent("Payload")
+    func createWorkspace() throws -> URL {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd_HHmmss"
         
-        var isDir: ObjCBool = false
-        let exists = FileManager.default.fileExists(
-            atPath: payloadURL.path,
-            isDirectory: &isDir
-        )
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("IPASignCraft_\(formatter.string(from: Date()))")
         
-        guard exists && isDir.boolValue else {
-            throw NSError(
-                domain: "IPASignCraft",
-                code: 1001,
-                userInfo: [NSLocalizedDescriptionKey: "Payload folder not found after extraction"]
-            )
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        
+        return url
+    }
+}
+
+fileprivate extension CodeSignService {
+    func resolveCertificateIdentity(_ input: CertificateRequest) throws -> String {
+        switch input {
+        case .saved(let cert):
+            return cert.name
+        case .p12(let url, let password):
+            return try importP12AndGetIdentity(url: url, password: password)
         }
-        
-        return payloadURL.path
     }
     
-    func createTempDirectory(for ipaPath: String) throws -> String {
+    func importP12AndGetIdentity(url: URL, password: String) throws -> String {
         
-        let ipaURL = URL(fileURLWithPath: ipaPath)
-        let baseDir = ipaURL.deletingLastPathComponent()
+        let keychain = "\(NSHomeDirectory())/Library/Keychains/login.keychain-db"
         
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd_HHmmss_SSS"
+        // 1. Import p12 into keychain
+        try ShellExecutor.run("""
+        security import "\(url.path)" \
+        -k "\(keychain)" \
+        -P "\(password)" \
+        -T /usr/bin/codesign \
+        -T /usr/bin/security
+        """)
         
-        let tempURL = baseDir.appendingPathComponent("IPASignCraft_\(formatter.string(from: Date()))")
+        // 2. Extract identity (SHA-1)
+        let output = try ShellExecutor.runWithOutput("""
+        security find-identity -v -p codesigning
+        """)
         
-        try FileManager.default.createDirectory(
-            at: tempURL,
-            withIntermediateDirectories: true
-        )
+        // 3. Parse SHA-1 hash
+        guard let identity = parseIdentity(from: output.output) else {
+            throw NSError(domain: "CodeSign", code: 1, userInfo: [
+                NSLocalizedDescriptionKey: "Failed to extract signing identity"
+            ])
+        }
         
-        return tempURL.path
+        return identity
+    }
+    
+    private func parseIdentity(from output: String) -> String? {
+        
+        // Example line:
+        // 1) ABCDEF1234567890ABCDEF1234567890ABCDEF12 "Apple Development: Name"
+        
+        let lines = output.split(separator: "\n")
+        
+        for line in lines {
+            if let match = line.range(of: "[A-F0-9]{40}", options: .regularExpression) {
+                return String(line[match])
+            }
+        }
+        
+        return nil
     }
 }

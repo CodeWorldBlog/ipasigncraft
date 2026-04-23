@@ -14,7 +14,6 @@ struct FilePickerView: View {
     @Binding var filePath: String
 
     var body: some View {
-
         HStack {
             Text(title)
 

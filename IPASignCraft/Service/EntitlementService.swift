@@ -10,13 +10,13 @@ import Foundation
 struct EntitlementService {
     
     static func prepareEntitlements(
-        appPath: String,
+        appURL: URL,
         updates: [EntitlementEntry],
-        outputDir: String
-    ) throws -> String {
+        outputDir: URL
+    ) throws -> URL {
         
         // 1. Extract existing
-        let existingRaw = try self.extractRaw(from: appPath)
+        let existingRaw = try self.extractRaw(from: appURL.path)
         
         // 2. Convert to model
         let existing = convertToModel(existingRaw)
@@ -33,10 +33,10 @@ struct EntitlementService {
         let final = merged.mapValues { $0.toAny() }
         
         // 6. Write
-        let path = "\(outputDir)/entitlements.plist"
-        try write(final, to: path)
+        let entitlementsURL = outputDir.appendingPathComponent("entitlements.plist")
+        try write(final, to: entitlementsURL.path)
         
-        return path
+        return entitlementsURL
     }
 }
 
