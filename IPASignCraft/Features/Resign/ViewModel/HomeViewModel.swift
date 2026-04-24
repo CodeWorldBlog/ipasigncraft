@@ -45,7 +45,6 @@ class HomeViewModel: ObservableObject {
     // MARK: - Unlock
 
     func unlockKeychain(password: String) {
-
         Task {
             do {
                 let certs = try KeychainService.fetchCertificatesAfterUnlock(password: password)
@@ -151,28 +150,39 @@ class HomeViewModel: ObservableObject {
             return
         }
         
+        let signingOptions = SigningOptions(
+            newBundleID: self.state.bundleID,
+            modifyPlist: self.state.enablePlistEditing,
+            plistEntries: self.state.plistEntries,
+            modifyEntitlements: self.state.enableEntitlementEditing,
+            entitlementEntries: self.state.entitlementEntries
+        )
+        
         self.state.isSigning = true
         state.log = "Starting resign process...\n"
-        Task {
+        Task.detached {
             do {
-                let signingOptions = SigningOptions(newBundleID: state.bundleID, modifyPlist: state.enablePlistEditing, plistEntries: state.plistEntries, modifyEntitlements: state.enableEntitlementEditing, entitlementEntries: state.entitlementEntries)
-                
-                let result = try await resignService.resignIPA(
+                let result = try await self.resignService.resignIPA(
                     ipaURL: ipaURL,
                     profileURL: profileURL,
                     certificate: selectedCertificate,
-                    options: signingOptions) { step in
+                    options: signingOptions
+                ) { step in
+                    Task { @MainActor in
                         self.state.currentStep = step
                     }
-                await MainActor.run  {
+                }
+
+                await MainActor.run {
                     self.state.isSigning = false
                     self.state.log += "Finished\nOutput: \(result)\n"
                     self.saveIPA(at: result)
                 }
+
             } catch {
                 await MainActor.run {
                     self.state.isSigning = false
-                    state.log += "Error: \(error.localizedDescription)\n"
+                    self.state.log += "Error: \(error.localizedDescription)\n"
                 }
             }
         }
@@ -203,12 +213,16 @@ fileprivate extension HomeViewModel {
         let panel = NSSavePanel()
         panel.title = "Save Resigned IPA"
         panel.nameFieldStringValue = "resigned.ipa"
-        panel.allowedContentTypes = [.zip] // or UTType(filenameExtension: "ipa")
+        panel.allowedContentTypes = [.data]
 
         panel.begin { response in
             if response == .OK, let destinationURL = panel.url {
                 do {
-                    try FileManager.default.copyItem(at: tempURL, to: destinationURL)
+                    let finalURL = destinationURL.pathExtension.lowercased() == "ipa"
+                        ? destinationURL
+                        : destinationURL.appendingPathExtension("ipa")
+
+                    try FileManager.default.copyItem(at: tempURL, to: finalURL)
                 } catch {
                     print("Save failed:", error)
                 }
@@ -216,3 +230,4 @@ fileprivate extension HomeViewModel {
         }
     }
 }
+

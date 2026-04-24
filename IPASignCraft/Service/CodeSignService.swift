@@ -37,10 +37,7 @@ struct CodeSignService {
         // 4. Inject provisioning profile
         progress?(.embeddingProfile)
         let destination = appURL.appendingPathComponent("embedded.mobileprovision")
-        _ = try FileManager.default.replaceItemAt(
-            destination,
-            withItemAt: profileURL
-        )
+        try FileManager.default.copyWithOverwrite(from: profileURL, to: destination)
         
         // 5. Remove old signatures
         progress?(.removeOldSign)
@@ -62,7 +59,7 @@ struct CodeSignService {
         progress?(.repackaging)
         let outputIPA = workspace.appendingPathComponent("resigned.ipa")
         try ShellExecutor.run("""
-        ditto -c -k --sequesterRsrc --keepParent "\(workspace.appendingPathComponent("Payload").path)" "\(outputIPA.path)"
+        cd "\(workspace.path)" && zip -qry "\(outputIPA.lastPathComponent)" Payload
         """)
         
         return outputIPA

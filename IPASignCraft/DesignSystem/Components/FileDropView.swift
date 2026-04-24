@@ -6,11 +6,13 @@
 //
 
 import SwiftUI
+internal import UniformTypeIdentifiers
 
 struct FileDropView: View {
     let title: String?
     @Binding var filePath: String
     @State private var isHovering = false
+    let supportedTypes: [UTType]
 
     var body: some View {
 
@@ -81,7 +83,7 @@ struct FileDropView: View {
                 Spacer()
                 FilePickerView(
                     title: "Browse",
-                    supportedTypes: [".ipa"],
+                    supportedTypes: supportedTypes,
                     filePath: $filePath
                 )
             }
@@ -92,6 +94,7 @@ struct FileDropView: View {
 #Preview {
     FileDropView(
         title: "FileDropView",
-        filePath: .constant("/path/to/file.ipa")
+        filePath: .constant("/path/to/file.ipa"),
+        supportedTypes: [.ipa]
     )
 }

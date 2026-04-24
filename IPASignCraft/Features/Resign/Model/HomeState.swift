@@ -92,7 +92,6 @@ struct HomeState {
     var log: String = ""
     
     // MARK: - Signing Steps
-    var progress: Double = 0.0
     var currentStep: SigningStep = .idle
     
     // MARK: - Validation
@@ -113,19 +112,68 @@ struct HomeState {
     }
 }
 
-extension HomeState {
-    func isStepCompleted(_ step: SigningStep) -> Bool {
-        switch step {
-        case .preparing: return progress >= 0.5
-        case .extracting: return progress >= 0.15
-        case .modifying: return progress >= 0.30
-        case .embeddingProfile: return progress >= 0.5
-        case .removeOldSign: return progress >= 0.65
-        case .applyingCert: return progress >= 0.8
-        case .signing: return progress >= 0.9
-        case .repackaging: return progress >= 1.0
-        default: return false
+extension SigningStep {
+    var title: String {
+        switch self {
+        case .idle: return "Idle"
+        case .preparing: return "Start Preparing"
+        case .extracting: return "Extract IPA"
+        case .modifying: return "Modifying IPA"
+        case .embeddingProfile: return "Embed Profile"
+        case .removeOldSign: return "Remove Old Sign"
+        case .applyingCert: return "Apply Certificate"
+        case .signing: return "Code Sign"
+        case .repackaging: return "Repackage IPA"
+        case .completed: return "Completed"
         }
     }
 }
 
+extension HomeState {
+    var progressIndex: Int {
+        guard let index = SigningStep.progressSteps.firstIndex(of: currentStep) else {
+            return 0
+        }
+        return index
+    }
+    
+    var progress: Double {
+        let steps = SigningStep.progressSteps
+        guard let index = steps.firstIndex(of: currentStep) else {
+            return 0
+        }
+        return Double(index + 1) / Double(steps.count)
+    }
+}
+
+extension SigningStep {
+    static var progressSteps: [SigningStep] {
+        [
+            .preparing,
+            .extracting,
+            .modifying,
+            .embeddingProfile,
+            .removeOldSign,
+            .applyingCert,
+            .signing,
+            .repackaging
+        ]
+    }
+
+    var progressIndex: Int? {
+        Self.progressSteps.firstIndex(of: self)
+    }
+}
+
+extension HomeState {
+    func isStepCompleted(_ step: SigningStep) -> Bool {
+        guard
+            let currentIndex = SigningStep.progressSteps.firstIndex(of: currentStep),
+            let stepIndex = SigningStep.progressSteps.firstIndex(of: step)
+        else {
+            return false
+        }
+
+        return stepIndex < currentIndex
+    }
+}

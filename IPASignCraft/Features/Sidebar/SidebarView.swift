@@ -12,15 +12,17 @@ struct SidebarView: View {
     
     var body: some View {
         ZStack {
-            // Background layer (watercolor + soft overlay)
             sidebarBackground
-            // Foreground content
+            
             VStack(alignment: .leading, spacing: 18) {
                 header
-                // Subtle divider to separate header from menu
+                
                 Divider().opacity(0.3)
+                
                 menuOptions
+                
                 Spacer()
+                
                 footer
             }
             .padding(20)
@@ -30,8 +32,7 @@ struct SidebarView: View {
 
 // MARK: - Background
 private extension SidebarView {
-    /// Watercolor background with soft white overlay
-    /// Keeps UI readable while preserving aesthetic
+    
     var sidebarBackground: some View {
         GeometryReader { geo in
             Image("sidebarBgWatercolor")
@@ -45,29 +46,22 @@ private extension SidebarView {
 // MARK: - Header
 private extension SidebarView {
     
-    /// App branding (icon + title + tagline)
     var header: some View {
         HStack(spacing: 10) {
             
-            // Brand icon with subtle gradient
-            Image(systemName: "feather.fill")
-                .font(.title2)
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [Color.blue, Color.orange],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+            Image("sidebarIcon")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 40, height: 40)
             
             VStack(alignment: .leading, spacing: 2) {
                 Text("IPASignCraft")
                     .font(.headline)
-                    .foregroundColor(.primary)
+                    .foregroundColor(AppColors.primaryText)
                 
                 Text("Craft. Sign. Deploy.")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(AppColors.secondaryText)
             }
         }
         .padding(.bottom, 10)
@@ -77,40 +71,78 @@ private extension SidebarView {
 // MARK: - Menu
 private extension SidebarView {
     
-    /// Main navigation items
     var menuOptions: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sidebarItem(icon: "house", title: "Home", isActive: true)
+            sidebarItem(icon: "house", title: "Home", item: .home)
         }
     }
     
-    /// Single sidebar row
-    /// - Highlights active state
-    /// - Keeps icon and text visually consistent
-    func sidebarItem(icon: String, title: String, isActive: Bool = false) -> some View {
+    func sidebarItem(icon: String, title: String, item: SidebarItem) -> some View {
+        SidebarRow(
+            icon: icon,
+            title: title,
+            isActive: selection == item
+        )
+        .onTapGesture {
+            selection = item
+        }
+    }
+}
+
+// MARK: - Sidebar Row
+struct SidebarRow: View {
+    let icon: String
+    let title: String
+    let isActive: Bool
+    
+    @State private var isHovering = false
+    
+    var body: some View {
         HStack(spacing: 10) {
             
             Image(systemName: icon)
-                .foregroundColor(isActive ? .blue : .primary.opacity(0.7))
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(iconColor)
             
             Text(title)
-                .foregroundColor(isActive ? .blue : .primary)
+                .font(.system(size: 13, weight: isActive ? .semibold : .regular))
+                .foregroundColor(AppColors.primaryText)
         }
-        .padding(10)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            isActive
-            ? RoundedRectangle(cornerRadius: 8)
-                .fill(Color.blue.opacity(0.12))
-            : nil
-        )
+        .background(background)
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            isHovering = hovering
+        }
+        .animation(.easeOut(duration: 0.12), value: isHovering)
+    }
+    
+    private var iconColor: Color {
+        if isActive { return AppColors.accent }
+        if isHovering { return AppColors.accent.opacity(0.8) }
+        return AppColors.primaryText.opacity(0.7)
+    }
+    
+    private var background: some View {
+        RoundedRectangle(cornerRadius: 8)
+            .fill(backgroundColor)
+    }
+    
+    private var backgroundColor: Color {
+        if isActive {
+            return AppColors.accent.opacity(0.14)
+        } else if isHovering {
+            return AppColors.accent.opacity(0.06)
+        } else {
+            return Color.clear
+        }
     }
 }
 
 // MARK: - Footer
 private extension SidebarView {
-    
-    /// App version (fetched dynamically from Info.plist)
     var footer: some View {
         Text(AppInfo.version)
             .font(.caption)

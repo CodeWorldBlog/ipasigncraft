@@ -7,10 +7,11 @@
 
 import SwiftUI
 import AppKit
+internal import UniformTypeIdentifiers
 
 struct FilePickerView: View {
     let title: String
-    let supportedTypes: [String]
+    let supportedTypes: [UTType]
     @Binding var filePath: String
 
     var body: some View {
@@ -33,6 +34,9 @@ struct FilePickerView: View {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
         panel.allowsMultipleSelection = false
+        
+        // Convert extensions → UTType
+        panel.allowedContentTypes = supportedTypes
 
         if panel.runModal() == .OK {
             filePath = panel.url?.path ?? ""
@@ -42,7 +46,7 @@ struct FilePickerView: View {
 
 #Preview {
     FilePickerView(
-        title: "FilePickerView", supportedTypes: ["ipa"],
+        title: "FilePickerView", supportedTypes: [.ipa],
         filePath: .constant("/path/to/file.ipa")
     )
 }

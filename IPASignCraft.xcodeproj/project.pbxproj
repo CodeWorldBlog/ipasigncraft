@@ -10,9 +10,22 @@
 		C1A8AFF92F83D5B500A2E421 /* IPASignCraft.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IPASignCraft.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		C1E5B5072F9B92C4003E538F /* Exceptions for "IPASignCraft" folder in "IPASignCraft" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = C1A8AFF82F83D5B500A2E421 /* IPASignCraft */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		C1E5B1C22F99EC64003E538F /* IPASignCraft */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				C1E5B5072F9B92C4003E538F /* Exceptions for "IPASignCraft" folder in "IPASignCraft" target */,
+			);
 			path = IPASignCraft;
 			sourceTree = "<group>";
 		};
@@ -271,6 +284,7 @@
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = IPASignCraft/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -315,6 +329,7 @@
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = IPASignCraft/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

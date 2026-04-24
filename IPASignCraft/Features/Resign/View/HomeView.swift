@@ -105,10 +105,12 @@ private extension HomeView {
                 
                 /// File input binding to ViewModel
                 FileDropView(
-                    title: nil, filePath: Binding(
+                    title: nil,
+                    filePath: Binding(
                         get: { viewModel.state.ipaURL?.path ?? ""},
                         set: { viewModel.updateIPAPath($0) }
-                    )
+                    ),
+                    supportedTypes: [.ipa]
                 )
 
                 /// Show file summary when selected
@@ -138,7 +140,7 @@ private extension HomeView {
                 /// Profile picker
                 FilePickerView(
                     title: "Select Profile",
-                    supportedTypes: [".mobileprovision"],
+                    supportedTypes: [.mobileProvision],
                     filePath: Binding(
                         get: { viewModel.state.profileURL?.path ?? "" },
                         set: { viewModel.updateProfilePath($0) }
@@ -212,7 +214,6 @@ fileprivate extension HomeView {
 fileprivate extension HomeView {
     var plistSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            
             HStack {
                 Text("Info.plist Modifications")
                     .font(.subheadline)
@@ -417,23 +418,31 @@ private extension HomeView {
     /// Certificate selection (custom or saved)
     var certificateSection: some View {
         HomeSectionView("Certificate") {
-            VStack(spacing: Spacing.base) {
-                // Selection
+            VStack(alignment: .leading, spacing: Spacing.base) {
+                
+                // MARK: - Selection (Centered)
                 Picker("", selection: self.$viewModel.state.certMode) {
-                    Text("Keychian Certificate").tag(CertificateMode.keychain)
+                    Text("Keychain Certificate").tag(CertificateMode.keychain)
                     Text("Custom (.p12)").tag(CertificateMode.custom)
                 }
                 .pickerStyle(.segmented)
+                .tint(AppColors.accent)
+                .frame(maxWidth: 320) // keeps it compact (macOS style)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.bottom, 4)
                 
-                // Content
-                if self.viewModel.state.certMode == .custom {
-                    customCertificateView
-                        .transition(.opacity.combined(with: .move(edge: .top)))
-                } else {
-                    savedCertificateView
-                        .transition(.opacity.combined(with: .move(edge: .top)))
+                // MARK: - Content
+                Group {
+                    if self.viewModel.state.certMode == .custom {
+                        customCertificateView
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    } else {
+                        savedCertificateView
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
                 }
-            }.frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
     
@@ -443,7 +452,7 @@ private extension HomeView {
             // File picker
             FilePickerView(
                 title: "Select .p12",
-                supportedTypes: [".p12"],
+                supportedTypes: [.p12],
                 filePath: $viewModel.state.p12Path
             )
             
@@ -509,28 +518,41 @@ fileprivate extension HomeView {
             
             VStack(alignment: .leading, spacing: 14) {
                 
+                // Progress bar driven by step index
                 ProgressView(value: viewModel.state.progress)
-
-                ForEach(SigningStep.allCases.filter { $0 != .idle }, id: \.self) { step in
-                    statusRow(
-                        step.rawValue,
-                        done: viewModel.state.isStepCompleted(step)
-                    )
+                ForEach(SigningStep.progressSteps, id: \.self) { step in
+                    statusRow(for: step)
                 }
             }
         }
     }
     
-    func statusRow(_ title: String, done: Bool) -> some View {
-        HStack {
-            Image(systemName: done ? "checkmark.circle.fill" : "circle")
-                .foregroundColor(done ? .green : .gray)
+    func statusRow(for step: SigningStep) -> some View {
+        let isCurrent = step == viewModel.state.currentStep
+        let isDone = viewModel.state.isStepCompleted(step)
 
-            Text(title)
+        return HStack {
+            Image(systemName: iconName(isCurrent: isCurrent, done: isDone))
+                .foregroundColor(iconColor(isCurrent: isCurrent, done: isDone))
+
+            Text(step.title)
                 .font(.caption)
+                .fontWeight(isCurrent ? .semibold : .regular)
 
             Spacer()
         }
+    }
+    
+    func iconName(isCurrent: Bool, done: Bool) -> String {
+        if done { return "checkmark.circle.fill" }
+        if isCurrent { return "circle.fill" }
+        return "circle"
+    }
+
+    func iconColor(isCurrent: Bool, done: Bool) -> Color {
+        if done { return .green }
+        if isCurrent { return .blue }
+        return .gray
     }
 }
 
@@ -562,24 +584,6 @@ fileprivate extension HomeView {
 
 //MARK: - Resusable
 fileprivate extension HomeView {
-    func advancedToggleSection<Content: View>(
-        title: String,
-        isOn: Binding<Bool>,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        
-        VStack(alignment: .leading, spacing: 10) {
-            
-            Toggle(title, isOn: isOn)
-            
-            if isOn.wrappedValue {
-                content()
-                    .padding(.leading, 10)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-        }
-    }
-    
     /// Small reusable row for selected file summaries
     func infoRow(icon: String, color: Color, title: String, subtitle: String) -> some View {
         HStack(spacing: Spacing.sm) {
