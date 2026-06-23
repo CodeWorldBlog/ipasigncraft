@@ -13,11 +13,15 @@ extension View {
     func fieldContainer() -> some View {
         self
             .padding(Spacing.md)
-            .background(AppColors.cardBackground)
+            .background(
+                RoundedRectangle(cornerRadius: Radius.sm)
+                    .fill(AppColors.cardSurface)
+            )
             .overlay(
                 RoundedRectangle(cornerRadius: Radius.sm)
                     .stroke(AppColors.border, lineWidth: 1)
             )
+            .shadow(color: AppColors.cardShadow, radius: 6, x: 0, y: 2)
             .cornerRadius(Radius.sm)
     }
 }

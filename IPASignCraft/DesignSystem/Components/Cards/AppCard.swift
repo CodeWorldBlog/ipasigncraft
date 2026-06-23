@@ -21,12 +21,13 @@ struct AppCard<Content: View>: View {
         .padding(Spacing.base)
         .background(
             RoundedRectangle(cornerRadius: Radius.xl)
-                .fill(.ultraThinMaterial)
+                .fill(AppColors.cardSurface)
         )
         .overlay(
             RoundedRectangle(cornerRadius: Radius.xl)
                 .stroke(AppColors.border, lineWidth: 1)
         )
+        .shadow(color: AppColors.cardShadow, radius: 8, x: 0, y: 4)
         .clipShape(
             RoundedRectangle(cornerRadius: Radius.xl)
         )
