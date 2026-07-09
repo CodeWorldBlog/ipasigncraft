@@ -22,90 +22,88 @@ struct IPAInspectorView: View {
 
     var body: some View {
 
-        ZStack {
+        ScreenShell {
+            HStack(alignment: .top, spacing: Spacing.lg) {
 
-            // Background
-            inspectorBackground
+                // Left column: main dashboard
+                VStack(alignment: .center, spacing: Spacing.lg) {
 
-            // Main content with left dashboard and right console/status
-            ScrollView {
-                HStack(alignment: .top, spacing: Spacing.lg) {
+                    headerSection
 
-                    // Left column: main dashboard
-                    VStack(alignment: .center, spacing: Spacing.lg) {
+                    VStack(alignment: .leading, spacing: Spacing.lg) {
 
-                        headerSection
+                        // File upload section
+                        fileUploadSection
 
-                        VStack(alignment: .leading, spacing: Spacing.lg) {
+                        // Immediate placeholder summary while background inspection runs.
+                        if viewModel.state.inspection == nil, let summary = viewModel.state.selectedFileSummary {
+                            VStack(alignment: .leading, spacing: Spacing.sm) {
+                                HStack(alignment: .center, spacing: Spacing.base) {
+                                    InfoRow(
+                                        icon: "doc.fill",
+                                        color: AppColors.accent,
+                                        title: summary.fileName,
+                                        subtitle: "\(summary.humanSize)\(summary.modifiedDate != nil ? " • \(summary.modifiedDate!)" : "")"
+                                    )
 
-                            // File upload section
-                            fileUploadSection
+                                    Spacer()
 
-                            // Selected file info
-                            if let ipaPath = viewModel.state.selectedIPAURL?.path {
-                                selectedFileSection(fileName: (ipaPath as NSString).lastPathComponent)
-                            }
-
-                            // Inspection results
-                            if let inspection = viewModel.state.inspection {
-
-                                Divider()
-
-                                // Quick stat cards
-                                statCardsSection(inspection: inspection)
-
-                                // Expandable sections
-                                inspectionDetailsSection(inspection: inspection)
-
-                                // Completion status (main)
-                                completionStatusSection
-                            }
-                        }
-                        .frame(maxWidth: 800, alignment: .leading)
-                        .padding(.horizontal, Spacing.lg)
-                    }
-                    .frame(maxWidth: 800)
-
-                    // Right column: console and compact status
-                    VStack(alignment: .leading, spacing: Spacing.base) {
-
-                        // Console / Logs placeholder
-                        VStack(alignment: .leading, spacing: Spacing.sm) {
-                            Text("Console")
-                                .font(AppFont.heading3)
-                                .fontWeight(.semibold)
-
-                            Text("Live logs and inspection output")
-                                .font(AppFont.secondary)
-                                .foregroundColor(AppColors.secondaryText)
-
-                            // Simple scrollable console area
-                            ScrollView {
-                                VStack(alignment: .leading, spacing: Spacing.xs) {
-                                    ForEach(viewModel.state.log.split(separator: "\n").suffix(50), id: \.self) { line in
-                                        Text(String(line))
-                                            .font(AppFont.small)
-                                            .foregroundColor(AppColors.secondaryText)
-                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                    // Small inline activity indicator
+                                    if viewModel.state.isLoading {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle())
+                                            .scaleEffect(0.8)
                                     }
                                 }
                                 .padding(Spacing.base)
+                                .background(RoundedRectangle(cornerRadius: Radius.sm).fill(AppColors.cardSurface))
+                                .shadow(color: AppColors.cardShadow, radius: 4, x: 0, y: 1)
                             }
-                            .frame(minHeight: 220, maxHeight: 320)
-                            .background(RoundedRectangle(cornerRadius: Radius.sm).fill(AppColors.cardSurface))
-                            .shadow(color: AppColors.cardShadow, radius: 6, x: 0, y: 2)
                         }
 
-                        // Compact completion/status box
-                        compactCompletionStatusSection
+                        // Inspection results
+                        if let inspection = viewModel.state.inspection {
 
-                        Spacer()
+                            Divider()
+
+                            // Quick stat cards
+                            statCardsSection(inspection: inspection)
+
+                            // Expandable sections
+                            inspectionDetailsSection(inspection: inspection)
+
+                        }
                     }
-                    .frame(width: 340)
+                    .frame(maxWidth: 800, alignment: .leading)
+                    .padding(.horizontal, Spacing.lg)
                 }
-                .padding(.vertical, Spacing.lg)
-                .padding(.horizontal, Spacing.lg)
+                .frame(maxWidth: 800)
+
+                // Right column: console and compact status
+                VStack(alignment: .leading, spacing: Spacing.base) {
+
+                    // Compact completion/status box (shows waiting/processing/complete)
+                    compactCompletionStatusSection
+
+                    // Reusable console component (shared with HomeView)
+                    ConsoleView(
+                        title: "Console",
+                        icon: "terminal",
+                        logContent: Binding(
+                            get: { viewModel.state.log },
+                            set: { viewModel.state.log = $0 }
+                        ),
+                        onClear: {
+                            viewModel.clearLogs()
+                        }
+                    )
+
+                    Spacer()
+                }
+                .frame(width: 340)
             }
+            .padding(.vertical, Spacing.lg)
+            .padding(.horizontal, Spacing.lg)
         }
         .toolbar {
             ToolbarItemGroup {
@@ -119,12 +117,7 @@ struct IPAInspectorView: View {
 private extension IPAInspectorView {
 
     var inspectorBackground: some View {
-
-        GeometryReader { geo in
-
-            Color(nsColor: .windowBackgroundColor)
-                .frame(width: geo.size.width, height: geo.size.height)
-        }
+        WatercolorBackground()
     }
 }
 
@@ -190,50 +183,9 @@ private extension IPAInspectorView {
                 }
             ),
             supportedTypes: [.ipa],
-            onSelect: { _ in }
+            onSelect: { _ in },
+            selectedSubtitle: "Ready For Inspection"
         )
-    }
-}
-
-// MARK: - Selected File Section
-private extension IPAInspectorView {
-
-    func selectedFileSection(fileName: String) -> some View {
-
-        HStack(spacing: Spacing.base) {
-
-            ZStack {
-                RoundedRectangle(cornerRadius: Spacing.xs)
-                    .fill(AppColors.accent.opacity(0.1))
-
-                Image(systemName: "doc.fill")
-                    .font(.system(size: 16))
-                    .foregroundColor(AppColors.accent)
-            }
-            .frame(width: 32, height: 32)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(fileName)
-                    .font(AppFont.body)
-                    .fontWeight(.semibold)
-
-                Text("Ready for inspection")
-                    .font(AppFont.caption)
-                    .foregroundColor(AppColors.secondaryText)
-            }
-
-            Spacer()
-
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 16))
-                .foregroundColor(AppColors.success)
-        }
-        .padding(Spacing.base)
-        .background(
-            RoundedRectangle(cornerRadius: Radius.sm)
-            .fill(AppColors.cardSurface)
-        )
-        .shadow(color: AppColors.cardShadow, radius: 6, x: 0, y: 2)
     }
 }
 
@@ -393,54 +345,64 @@ private extension IPAInspectorView {
 
 // MARK: - Completion Status
 private extension IPAInspectorView {
-
-    var completionStatusSection: some View {
-
-        HStack(spacing: Spacing.sm) {
-
-            Image(systemName: "info.circle.fill")
-                .font(.system(size: 14))
-                .foregroundColor(.blue)
-
-            Text("Inspection completed successfully")
-                .font(AppFont.secondary)
-
-            Spacer()
-
-            Text("Today, 10:42 AM")
-                .font(AppFont.caption)
-                .foregroundColor(AppColors.secondaryText)
-
-            Image(systemName: "clock")
-                .font(.system(size: 12))
-                .foregroundColor(AppColors.secondaryText)
-        }
-        .padding(Spacing.base)
-        .background(
-            RoundedRectangle(cornerRadius: Radius.sm)
-                .fill(AppColors.cardSurface)
-        )
-        .shadow(color: AppColors.cardShadow, radius: 6, x: 0, y: 2)
-    }
-
     /// Compact variant of completion status suitable for sidebar.
     var compactCompletionStatusSection: some View {
 
-        HStack(spacing: Spacing.xs) {
-            Image(systemName: "info.circle.fill")
-                .font(.system(size: 12))
-                .foregroundColor(.blue)
+        // Derive status pieces from view model state
+        let (iconName, iconColor, titleText, subtitleText): (String, Color, String, String) = {
+            if let error = viewModel.state.errorMessage {
+                return ("xmark.octagon.fill", .red, "Inspection failed", error)
+            }
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Inspection completed")
+            if viewModel.state.selectedIPAURL == nil {
+                return ("tray", .gray, "Waiting for IPA", "Select or drop an IPA")
+            }
+
+            if viewModel.state.isLoading {
+                return ("arrow.triangle.2.circlepath", AppColors.accentHover, "Processing IPA", "Scanning...")
+            }
+
+            if viewModel.state.inspection != nil {
+                let ts = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .short)
+                return ("checkmark.circle.fill", .green, "Inspection completed", ts)
+            }
+
+            return ("info.circle.fill", .blue, "Ready", "")
+        }()
+
+        return HStack(spacing: Spacing.sm) {
+
+            // Icon badge
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(iconColor.opacity(0.15))
+                    .frame(width: 44, height: 44)
+
+                Image(systemName: iconName)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(iconColor)
+            }
+
+            // Textual info + optional progress
+            VStack(alignment: .leading, spacing: 4) {
+                Text(titleText)
                     .font(AppFont.small)
                     .fontWeight(.semibold)
 
-                Text("Today, 10:42 AM")
-                    .font(AppFont.small)
-                    .foregroundColor(AppColors.secondaryText)
-            }
+                if !subtitleText.isEmpty {
+                    Text(subtitleText)
+                        .font(AppFont.caption)
+                        .foregroundColor(AppColors.secondaryText)
+                }
 
+                if viewModel.state.isLoading {
+                    ProgressView()
+                        .progressViewStyle(LinearProgressViewStyle(tint: AppColors.accent))
+                        .frame(height: 6)
+                        .cornerRadius(3)
+                        .padding(.top, 6)
+                }
+            }
             Spacer()
         }
         .padding(Spacing.xs)
@@ -448,7 +410,7 @@ private extension IPAInspectorView {
             RoundedRectangle(cornerRadius: Radius.sm)
                 .fill(AppColors.cardSurface)
         )
-        .shadow(color: AppColors.cardShadow, radius: 4, x: 0, y: 1)
+        .shadow(color: AppColors.cardShadow, radius: 6, x: 0, y: 2)
     }
 }
 

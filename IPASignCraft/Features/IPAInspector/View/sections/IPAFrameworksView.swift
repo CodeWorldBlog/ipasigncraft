@@ -122,6 +122,7 @@ private extension IPAFrameworksView {
                         Text(framework.size)
                     }
                 }
+                .frame(minHeight: 220, maxHeight: 420)
             }
         }
     }

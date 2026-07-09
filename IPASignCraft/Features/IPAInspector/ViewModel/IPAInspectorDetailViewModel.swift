@@ -41,9 +41,34 @@ final class IPAInspectorDetailViewModel: ObservableObject {
     
     /// Opens and inspects an IPA file.
     func inspectIPA(at url: URL) {
-        
+        // Set selection immediately so the UI can react.
         state.selectedIPAURL = url
-        
+
+        // Populate a lightweight summary from file attributes so the
+        // view can show an immediate placeholder while inspection runs.
+        do {
+            let attrs = try FileManager.default.attributesOfItem(atPath: url.path)
+            let size = (attrs[.size] as? NSNumber)?.int64Value ?? 0
+            let date = attrs[.modificationDate] as? Date
+
+            let byteFormatter = ByteCountFormatter()
+            byteFormatter.allowedUnits = [.useMB, .useKB, .useGB]
+            byteFormatter.countStyle = .file
+            let humanSize = byteFormatter.string(fromByteCount: size)
+
+            let dateStr: String?
+            if let d = date {
+                dateStr = DateFormatter.localizedString(from: d, dateStyle: .short, timeStyle: .short)
+            } else {
+                dateStr = nil
+            }
+
+            state.selectedFileSummary = .init(fileName: url.lastPathComponent, humanSize: humanSize, modifiedDate: dateStr)
+        } catch {
+            // Ignore attribute failures — summary is optional.
+            state.selectedFileSummary = .init(fileName: url.lastPathComponent, humanSize: "-", modifiedDate: nil)
+        }
+
         Task {
             
             await runInspection(for: url)
@@ -57,6 +82,7 @@ final class IPAInspectorDetailViewModel: ObservableObject {
         state.errorMessage = nil
         state.selectedSection = .overview
         state.selectedIPAURL = nil
+        state.selectedFileSummary = nil
         state.log = ""
     }
     

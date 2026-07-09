@@ -19,4 +19,6 @@ struct ParsedIPAInfo {
     let version: String
 
     let buildNumber: String
+
+    let executableName: String?
 }

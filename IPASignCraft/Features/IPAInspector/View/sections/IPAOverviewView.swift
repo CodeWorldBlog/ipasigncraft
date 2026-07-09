@@ -45,6 +45,8 @@ struct IPAOverviewView: View {
             summaryCardsSection
 
             capabilitiesSection
+
+            frameworkNamesSection
         }
     }
 }
@@ -147,6 +149,41 @@ private extension IPAOverviewView {
                     systemImage: "checkmark.circle.fill"
                 )
                 .foregroundStyle(.green)
+            }
+        }
+    }
+}
+
+// MARK: - Framework Names
+
+private extension IPAOverviewView {
+
+    /// Displays discovered framework names.
+    var frameworkNamesSection: some View {
+
+        VStack(
+            alignment: .leading,
+            spacing: 12
+        ) {
+
+            Text("Framework Names")
+                .font(.headline)
+
+            if inspection.frameworks.isEmpty {
+                Text("No embedded frameworks detected.")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(
+                    inspection.frameworks
+                        .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending },
+                    id: \.id
+                ) { framework in
+
+                    Label(
+                        framework.name,
+                        systemImage: "shippingbox"
+                    )
+                }
             }
         }
     }

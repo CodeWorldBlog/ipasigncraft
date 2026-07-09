@@ -19,6 +19,18 @@ final class IPAInspectorState {
     /// Currently selected IPA file URL.
     var selectedIPAURL: URL?
 
+    /// Lightweight summary of the selected file populated immediately
+    /// when a file is chosen. Used to render a placeholder while the
+    /// full inspection runs in the background.
+    struct SelectedFileSummary {
+        let fileName: String
+        let humanSize: String
+        let modifiedDate: String?
+    }
+
+    /// Short summary shown immediately after selection.
+    var selectedFileSummary: SelectedFileSummary?
+
     // MARK: - Inspection State
 
     /// Currently loaded inspection result.

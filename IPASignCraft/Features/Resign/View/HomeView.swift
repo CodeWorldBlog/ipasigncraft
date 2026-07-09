@@ -14,11 +14,7 @@ struct HomeView: View {
     @StateObject private var viewModel = HomeViewModel()
     
     var body: some View {
-        ZStack {
-            /// Background layer (visual only, no interaction)
-            homeBackground
-            
-            /// Main two-column layout
+        ScreenShell {
             HStack(alignment: .top, spacing: Spacing.xxl) {
                 leftSection.frame(maxWidth: 720)       // Input + configuration
                 rightSection     // Status + logs
@@ -34,14 +30,7 @@ struct HomeView: View {
 private extension HomeView {
     /// Watercolor background with soft overlay for readability
     var homeBackground: some View {
-        GeometryReader { geo in
-            Image("homeBgWatercolor")
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .frame(width: geo.size.width, height: geo.size.height)
-                .clipped()
-                .overlay(Color.white.opacity(0.6))
-        }
+        WatercolorBackground()
     }
 }
 
@@ -105,7 +94,8 @@ private extension HomeView {
                 set: { viewModel.updateIPAPath($0) }
             ),
             supportedTypes: [.ipa],
-            onSelect: { _ in }
+            onSelect: { _ in },
+            selectedSubtitle: "Ready For Signing"
         )
     }
 }
