@@ -103,22 +103,29 @@ private extension IPASecurityView {
                 title: "Security Status"
             )
 
+            let hasIssues =
+                !inspection.hasValidSignature ||
+                inspection.architectures.isEmpty ||
+                inspection.frameworks.contains { !$0.isSigned }
+
             HStack(spacing: 14) {
 
-                Image(systemName: "shield.checkered")
+                Image(systemName: hasIssues ? "shield.slash" : "shield.checkered")
                     .font(.largeTitle)
-                    .foregroundStyle(.green)
+                    .foregroundStyle(hasIssues ? .red : .green)
 
                 VStack(
                     alignment: .leading,
                     spacing: 4
                 ) {
 
-                    Text("No Major Issues Detected")
+                    Text(hasIssues ? "Issues Detected" : "No Major Issues Detected")
                         .font(.headline)
 
                     Text(
-                        "The IPA passed the currently available security checks."
+                        hasIssues
+                        ? "One or more security checks failed. Review the validation section below."
+                        : "The IPA passed the currently available security checks."
                     )
                     .foregroundStyle(.secondary)
                 }
