@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Observation
 
 /// Encapsulates all state for the IPA Inspector feature.
 ///
