@@ -308,8 +308,8 @@ private extension IPAInspectorView {
                 iconColor: .red,
                 title: "Security",
                 subtitle: "Security checks, warnings and recommendations.",
-                badge: "No issues",
-                badgeColor: .green
+                badge: (inspection.hasValidSignature && !inspection.architectures.isEmpty && inspection.frameworks.allSatisfy({ $0.isSigned })) ? "OK" : "Issues",
+                badgeColor: (inspection.hasValidSignature && !inspection.architectures.isEmpty && inspection.frameworks.allSatisfy({ $0.isSigned })) ? .green : .red
             ) {
                 IPASecurityView(inspection: inspection)
             }
