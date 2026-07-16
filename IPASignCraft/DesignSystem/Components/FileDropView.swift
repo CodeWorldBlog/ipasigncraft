@@ -70,7 +70,7 @@ struct FileDropView: View {
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isButton)
             .accessibilityLabel(filePath.isEmpty ? "File drop target" : "File loaded")
-            .accessibilityHint("Press Space or Enter when focused to open file picker. You can also drop an IPA file here.")
+            .accessibilityHint("Click to browse, or drop an IPA file here.")
             .onDrop(of: ["public.file-url"], isTargeted: $isHovering) { providers in
 
                 providers.first?.loadItem(forTypeIdentifier: "public.file-url",
