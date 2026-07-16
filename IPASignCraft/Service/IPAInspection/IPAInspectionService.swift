@@ -290,12 +290,18 @@ private extension IPAInspectionService {
         let result = try? ShellExecutor.runWithOutput("/usr/bin/lipo -info \"\(executableURL.path)\"")
         guard let output = result?.output else { return [] }
 
+        // lipo -info output formats:
+        //   Fat:  "Architectures in the fat file: <path> are: armv7 arm64"
+        //   Thin: "Non-fat file: <path> is architecture: arm64"
+        // In both cases the architecture names appear after the last colon.
         let line = output.split(separator: "\n").first.map(String.init) ?? output
-        let architectures = line.components(separatedBy: CharacterSet(charactersIn: ":, "))
+        guard let lastColon = line.lastIndex(of: ":") else { return [] }
+        let archString = String(line[line.index(after: lastColon)...])
+
+        return archString
+            .components(separatedBy: .whitespaces)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
-
-        return architectures.filter { $0 != "architecture" }
     }
 
     private func extractEntitlements(from executableURL: URL, profileURL: URL) -> [String] {

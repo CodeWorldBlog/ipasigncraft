@@ -34,33 +34,7 @@ struct IPAInspectorView: View {
 
                         // File upload section
                         fileUploadSection
-
-                        // Immediate placeholder summary while background inspection runs.
-                        if viewModel.state.inspection == nil, let summary = viewModel.state.selectedFileSummary {
-                            VStack(alignment: .leading, spacing: Spacing.sm) {
-                                HStack(alignment: .center, spacing: Spacing.base) {
-                                    InfoRow(
-                                        icon: "doc.fill",
-                                        color: AppColors.accent,
-                                        title: summary.fileName,
-                                        subtitle: "\(summary.humanSize)\(summary.modifiedDate != nil ? " • \(summary.modifiedDate!)" : "")"
-                                    )
-
-                                    Spacer()
-
-                                    // Small inline activity indicator
-                                    if viewModel.state.isLoading {
-                                        ProgressView()
-                                            .progressViewStyle(CircularProgressViewStyle())
-                                            .scaleEffect(0.8)
-                                    }
-                                }
-                                .padding(Spacing.base)
-                                .background(RoundedRectangle(cornerRadius: Radius.sm).fill(AppColors.cardSurface))
-                                .shadow(color: AppColors.cardShadow, radius: 4, x: 0, y: 1)
-                            }
-                        }
-
+                        
                         // Inspection results
                         if let inspection = viewModel.state.inspection {
 
