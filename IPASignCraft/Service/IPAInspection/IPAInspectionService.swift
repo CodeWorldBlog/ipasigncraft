@@ -49,6 +49,7 @@ final class IPAInspectionService: IPAInspectionServicing {
         let extractedURL = try extractIPA(
             at: url
         )
+        defer { try? FileManager.default.removeItem(at: extractedURL) }
 
         // Locate .app bundle
         let appBundleURL = try locateAppBundle(
