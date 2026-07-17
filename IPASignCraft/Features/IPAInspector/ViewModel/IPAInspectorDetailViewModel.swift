@@ -69,8 +69,12 @@ final class IPAInspectorDetailViewModel: ObservableObject {
             state.selectedFileSummary = .init(fileName: url.lastPathComponent, humanSize: "-", modifiedDate: nil)
         }
 
+        guard !state.isLoading else {
+            addLog("Inspection already in progress.")
+            return
+        }
+
         Task {
-            
             await runInspection(for: url)
         }
     }

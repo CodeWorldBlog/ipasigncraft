@@ -16,6 +16,7 @@ extension View {
             .background(
                 RoundedRectangle(cornerRadius: Radius.sm)
                     .fill(AppColors.cardSurface)
+                    .shadow(color: AppColors.cardShadow, radius: 6, x: 0, y: 2)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: Radius.sm)

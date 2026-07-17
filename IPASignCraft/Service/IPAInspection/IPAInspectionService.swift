@@ -51,6 +51,7 @@ final class IPAInspectionService: IPAInspectionServicing {
         let extractedURL = try extractIPA(
             at: url
         )
+        defer { try? FileManager.default.removeItem(at: extractedURL) }
 
         // Locate .app bundle
         let appBundleURL = try locateAppBundle(
@@ -142,8 +143,11 @@ private extension IPAInspectionService {
         )
 
         // Extract IPA using unzip command
-        try IPAExtractorService.unzip(url, to: temporaryDirectory)
-
+        do {
+            try IPAExtractorService.unzip(url, to: temporaryDirectory)
+        } catch {
+            throw IPAInspectionError.extractionFailed
+        }
         return temporaryDirectory
     }
 }
