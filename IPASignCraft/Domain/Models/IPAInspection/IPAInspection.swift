@@ -94,6 +94,12 @@ struct IPAInspection {
     /// Embedded frameworks discovered
     /// inside the IPA bundle.
     let frameworks: [FrameworkInfo]
+
+    /// Application identifier extracted from embedded
+    /// provisioning profile, e.g. "ABCDE12345.com.company.app" or "ABCDE12345.com.company.*"
+    let provisioningAppIdentifier: String?
+    /// Expiration date from embedded provisioning profile
+    let provisioningExpiration: Date?
 }
 
 // MARK: - Mock Data
@@ -144,5 +150,8 @@ extension IPAInspection {
                 size: "3 MB"
             )
         ]
-    )
+            ,
+            provisioningAppIdentifier: "ABCDE12345.com.company.mbriefing",
+            provisioningExpiration: nil
+        )
 }

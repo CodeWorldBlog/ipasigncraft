@@ -167,14 +167,51 @@ private extension IPASigningView {
 
             validationRow(
                 title: "Bundle Identifier Check",
-                passed: true
+                passed: bundleIdentifierMatchesProfile
             )
 
             validationRow(
                 title: "Provision Match",
-                passed: true
+                passed: provisionLooksValid
             )
         }
+    }
+}
+
+private extension IPASigningView {
+
+    /// Returns true when the provisioning profile's
+    /// application-identifier matches the app bundle id.
+    var bundleIdentifierMatchesProfile: Bool {
+        guard let prov = inspection.provisioningAppIdentifier else { return false }
+
+        // provisioning application-identifier format: "TEAMID.com.company.app" or wildcard
+        let parts = prov.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false)
+        let identifierPart: String
+        if parts.count >= 2 {
+            identifierPart = String(parts[1])
+        } else {
+            identifierPart = prov
+        }
+
+        if identifierPart.contains("*") {
+            // wildcard like com.company.* -> match prefix
+            let prefix = identifierPart.replacingOccurrences(of: "*", with: "")
+            return inspection.bundleIdentifier.hasPrefix(prefix)
+        }
+
+        return inspection.bundleIdentifier == identifierPart
+    }
+
+    /// Basic sanity check for provisioning profile presence.
+    var provisionLooksValid: Bool {
+        guard inspection.provisioningAppIdentifier != nil else { return false }
+
+        if let expiration = inspection.provisioningExpiration {
+            return expiration > Date()
+        }
+
+        return true
     }
 }
 

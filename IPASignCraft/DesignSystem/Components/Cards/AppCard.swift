@@ -26,8 +26,8 @@ struct AppCard<Content: View>: View {
         .overlay(
             RoundedRectangle(cornerRadius: Radius.xl)
                 .stroke(AppColors.border, lineWidth: 1)
+                .shadow(color: AppColors.cardShadow, radius: 8, x: 0, y: 4)
         )
-        .shadow(color: AppColors.cardShadow, radius: 8, x: 0, y: 4)
         .clipShape(
             RoundedRectangle(cornerRadius: Radius.xl)
         )

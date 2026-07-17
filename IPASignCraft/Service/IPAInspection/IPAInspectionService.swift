@@ -33,6 +33,8 @@ final class IPAInspectionService: IPAInspectionServicing {
         let teamIdentifier: String
         let architectures: [String]
         let entitlements: [String]
+        let provisioningAppIdentifier: String?
+        let provisioningExpiration: Date?
     }
 
     // MARK: - Public API
@@ -89,7 +91,9 @@ final class IPAInspectionService: IPAInspectionServicing {
 
             entitlements: securityReport.entitlements,
 
-            frameworks: frameworks
+            frameworks: frameworks,
+            provisioningAppIdentifier: securityReport.provisioningAppIdentifier,
+            provisioningExpiration: securityReport.provisioningExpiration
         )
     }
 }
@@ -251,13 +255,41 @@ private extension IPAInspectionService {
         let teamIdentifier = extractTeamIdentifier(from: appExecutableURL, profileURL: embeddedProfileURL)
         let architectures = extractArchitectures(from: appExecutableURL)
         let entitlements = extractEntitlements(from: appExecutableURL, profileURL: embeddedProfileURL)
+        let provisioningAppIdentifier = extractProvisioningApplicationIdentifier(from: embeddedProfileURL)
+        let provisioningExpiration = extractProvisioningExpiration(from: embeddedProfileURL)
 
         return SecurityInspectionReport(
             hasValidSignature: hasValidSignature,
             teamIdentifier: teamIdentifier,
             architectures: architectures,
             entitlements: entitlements
+            ,
+            provisioningAppIdentifier: provisioningAppIdentifier,
+            provisioningExpiration: provisioningExpiration
         )
+    }
+
+    private func extractProvisioningApplicationIdentifier(from profileURL: URL) -> String? {
+        let profileResult = try? ShellExecutor.runWithOutput("/usr/bin/security cms -D -i \"\(profileURL.path)\"")
+        guard let profileOutput = profileResult?.output.data(using: .utf8),
+              let plist = try? PropertyListSerialization.propertyList(from: profileOutput, options: [], format: nil) as? [String: Any],
+              let entitlements = plist["Entitlements"] as? [String: Any],
+              let appIdentifier = entitlements["application-identifier"] as? String else {
+            return nil
+        }
+
+        return appIdentifier
+    }
+
+    private func extractProvisioningExpiration(from profileURL: URL) -> Date? {
+        let profileResult = try? ShellExecutor.runWithOutput("/usr/bin/security cms -D -i \"\(profileURL.path)\"")
+        guard let profileOutput = profileResult?.output.data(using: .utf8),
+              let plist = try? PropertyListSerialization.propertyList(from: profileOutput, options: [], format: nil) as? [String: Any],
+              let expiration = plist["ExpirationDate"] as? Date else {
+            return nil
+        }
+
+        return expiration
     }
 
     private func isSignedItem(at url: URL) -> Bool {

@@ -20,8 +20,8 @@ extension View {
             .overlay(
                 RoundedRectangle(cornerRadius: Radius.sm)
                     .stroke(AppColors.border, lineWidth: 1)
+                    .shadow(color: AppColors.cardShadow, radius: 6, x: 0, y: 2)
             )
-            .shadow(color: AppColors.cardShadow, radius: 6, x: 0, y: 2)
             .cornerRadius(Radius.sm)
     }
 }
