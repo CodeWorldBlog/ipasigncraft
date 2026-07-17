@@ -139,8 +139,11 @@ private extension IPAInspectionService {
         )
 
         // Extract IPA using unzip command
-        try IPAExtractorService.unzip(url, to: temporaryDirectory)
-
+        do {
+            try IPAExtractorService.unzip(url, to: temporaryDirectory)
+        } catch {
+            throw IPAInspectionError.extractionFailed
+        }
         return temporaryDirectory
     }
 }
