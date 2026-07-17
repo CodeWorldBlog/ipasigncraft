@@ -14,11 +14,7 @@ struct HomeView: View {
     @StateObject private var viewModel = HomeViewModel()
     
     var body: some View {
-        ZStack {
-            /// Background layer (visual only, no interaction)
-            homeBackground
-            
-            /// Main two-column layout
+        ScreenShell {
             HStack(alignment: .top, spacing: Spacing.xxl) {
                 leftSection.frame(maxWidth: 720)       // Input + configuration
                 rightSection     // Status + logs
@@ -34,14 +30,7 @@ struct HomeView: View {
 private extension HomeView {
     /// Watercolor background with soft overlay for readability
     var homeBackground: some View {
-        GeometryReader { geo in
-            Image("homeBgWatercolor")
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .frame(width: geo.size.width, height: geo.size.height)
-                .clipped()
-                .overlay(Color.white.opacity(0.6))
-        }
+        WatercolorBackground()
     }
 }
 
@@ -97,35 +86,17 @@ private extension HomeView {
 private extension HomeView {
     /// IPA input: drag/drop or browse file
     var ipaSection: some View {
-        HomeSectionView("IPA File") {
-            VStack(alignment: .leading, spacing: Spacing.sm) {
-                
-                /// Helper text for clarity
-                Text("Select or drop the IPA you want to re-sign")
-                    .font(AppFont.secondary)
-                    .foregroundColor(AppColors.secondaryText)
-                
-                /// File input binding to ViewModel
-                FileDropView(
-                    title: nil,
-                    filePath: Binding(
-                        get: { viewModel.state.ipaURL?.path ?? ""},
-                        set: { viewModel.updateIPAPath($0) }
-                    ),
-                    supportedTypes: [.ipa]
-                )
-
-                /// Show file summary when selected
-                if let ipaPath = viewModel.state.ipaURL?.path {
-                    infoRow(
-                        icon: "doc.fill",
-                        color: AppColors.accent,
-                        title: (ipaPath as NSString).lastPathComponent,
-                        subtitle: "Ready for signing"
-                    )
-                }
-            }
-        }
+        HomeFileSection(
+            title: "IPA File",
+            helper: "Select or drop the IPA you want to re-sign",
+            filePath: Binding(
+                get: { viewModel.state.ipaURL?.path ?? "" },
+                set: { viewModel.updateIPAPath($0) }
+            ),
+            supportedTypes: [.ipa],
+            onSelect: { _ in },
+            selectedSubtitle: "Ready For Signing"
+        )
     }
 }
 
@@ -151,7 +122,7 @@ private extension HomeView {
                 
                 /// Display selected profile info
                 if let profilePath = viewModel.state.profileURL?.path {
-                    infoRow(
+                    InfoRow(
                         icon: "checkmark.seal.fill",
                         color: AppColors.success,
                         title: (profilePath as NSString).lastPathComponent,
@@ -604,29 +575,7 @@ fileprivate extension HomeView {
     }
 }
 
-//MARK: - Resusable
-fileprivate extension HomeView {
-    /// Small reusable row for selected file summaries
-    func infoRow(icon: String, color: Color, title: String, subtitle: String) -> some View {
-        HStack(spacing: Spacing.sm) {
-            Image(systemName: icon)
-                .foregroundColor(color)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(AppFont.secondary)
-                    .lineLimit(1)
-                
-                Text(subtitle)
-                    .font(AppFont.secondary)
-                    .foregroundColor(AppColors.secondaryText)
-            }
-            
-            Spacer()
-        }
-        .fieldContainer()
-    }
-}
+
 
 #Preview {
     HomeView()

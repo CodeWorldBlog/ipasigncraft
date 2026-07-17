@@ -73,7 +73,20 @@ private extension SidebarView {
     
     var menuOptions: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sidebarItem(icon: "house", title: "Home", item: .home)
+
+            // Main resign workflow screen
+            sidebarItem(
+                icon: "signature",
+                title: "Re-sign IPA",
+                item: .home
+            )
+
+            // IPA inspection and diagnostics feature
+            sidebarItem(
+                icon: "magnifyingglass",
+                title: "IPA Inspector",
+                item: .ipaInspector
+            )
         }
     }
     

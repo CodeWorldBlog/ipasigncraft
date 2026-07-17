@@ -28,6 +28,8 @@ struct RootView: View {
         switch selection {
         case .home:
             HomeView()
+        case .ipaInspector:
+            IPAInspectorView()
         }
     }
 }

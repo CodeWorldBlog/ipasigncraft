@@ -9,4 +9,5 @@ import Foundation
 
 enum SidebarItem: Hashable {
     case home
+    case ipaInspector
 }

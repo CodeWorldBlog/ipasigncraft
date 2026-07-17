@@ -29,11 +29,11 @@ struct FileDropView: View {
                         style: StrokeStyle(lineWidth: 1.2, dash: [6])
                     )
                     .foregroundColor(
-                        isHovering ? Color.blue.opacity(0.6) : Color.gray.opacity(0.4)
+                        isHovering ? AppColors.accent.opacity(0.6) : Color.gray.opacity(0.38)
                     )
                     .background(
                         RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(NSColor.controlBackgroundColor))
+                            .fill(AppColors.cardSurface)
                     )
 
                 VStack(spacing: 6) {
@@ -48,7 +48,7 @@ struct FileDropView: View {
 
                         Text("or click to browse")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(AppColors.secondaryText)
                     } else {
                         Text("IPA package loaded successfully")
                             .font(.caption)
@@ -57,9 +57,20 @@ struct FileDropView: View {
                 }
                 .padding(.vertical, 18)
             }
+            .contentShape(RoundedRectangle(cornerRadius: 12))
             .onTapGesture {
-                // optional: trigger file picker
+                openPanel()
             }
+            .focusable(true)
+            .onHover { hovering in
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    isHovering = hovering
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityLabel(filePath.isEmpty ? "File drop target" : "File loaded")
+            .accessibilityHint("Click to browse, or drop an IPA file here.")
             .onDrop(of: ["public.file-url"], isTargeted: $isHovering) { providers in
 
                 providers.first?.loadItem(forTypeIdentifier: "public.file-url",
@@ -89,6 +100,20 @@ struct FileDropView: View {
             }
         }
     }
+
+    #if os(macOS)
+    private func openPanel() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = supportedTypes
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.begin { response in
+            if response == .OK, let url = panel.url {
+                filePath = url.path
+            }
+        }
+    }
+    #endif
 }
 
 #Preview {
